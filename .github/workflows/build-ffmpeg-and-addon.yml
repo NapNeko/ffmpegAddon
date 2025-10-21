@@ -78,8 +78,8 @@ jobs:
 
       - name: Configure & build static FFmpeg
         run: |
-          chmod +x scripts/build_ffmpeg_unix.sh || true
-          ./scripts/build_ffmpeg_unix.sh "$PREFIX"
+          chmod +x scripts/build_ffmpeg_linux.sh || true
+          ./scripts/build_ffmpeg_linux.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
@@ -177,49 +177,64 @@ jobs:
             echo "No patches found in patches/"
           fi
 
-      - name: Build FFmpeg with MSVC via provided script (use MSYS2 bash and VS vcvars)
-        shell: cmd
+      - name: Build FFmpeg with MSVC via provided script (PowerShell -> MSYS2)
+        shell: pwsh
         run: |
-          REM locate Visual Studio and call vcvars64 to setup MSVC environment
-          set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-          if exist "%VSWHERE%" (
-            for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_INSTALL=%%I"
-          )
-          if not defined VS_INSTALL (
-            echo vswhere not found or Visual Studio not located. Trying default path.
-            set "VS_INSTALL=%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools"
-          )
-          if exist "%VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat" (
-            call "%VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat"
-          ) else (
-            echo WARNING: vcvars64.bat not found at %VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat
-          )
-          REM Run the build script using the MSYS2 bash executable installed by msys2/setup-msys2
-          if exist "C:\\msys64\\usr\\bin\\bash.exe" (
-            REM prefer using GITHUB_WORKSPACE instead of current dir to avoid empty %CD%
-            if defined GITHUB_WORKSPACE (
-              set "PWD_WIN=%GITHUB_WORKSPACE%"
-            ) else (
-              set "PWD_WIN=%CD%"
-            )
-            REM convert Windows current directory to MSYS path like D:/... -> /D/...
-            set "MSYS_PWD=%PWD_WIN:\=/=%"
-            set "DRIVE_LETTER=%MSYS_PWD:~0,1%"
-            set "REST=%MSYS_PWD:~2%"
-            set "MSYS_PWD=/%DRIVE_LETTER%%REST%"
-            echo PWD_WIN=%PWD_WIN%
-            echo Running in MSYS path %MSYS_PWD%
-            REM show directory listing for debugging
-            if exist "%PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh" (
-              echo Found build script at %PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh
-            ) else (
-              echo WARNING: build script not found at %PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh
-            )
-            C:\\msys64\\usr\\bin\\bash.exe -lc "cd \"%MSYS_PWD%\" && if [ -f scripts/build_ffmpeg_msvc.sh ]; then chmod +x scripts/build_ffmpeg_msvc.sh && ./scripts/build_ffmpeg_msvc.sh \"$PREFIX\"; else echo \"ERROR: scripts/build_ffmpeg_msvc.sh not found in %MSYS_PWD%\"; exit 2; fi"
-          ) else (
-            echo ERROR: MSYS2 bash not found at C:\msys64\usr\bin\bash.exe. Ensure msys2/setup-msys2 step ran correctly.
+            $ErrorActionPreference = 'Stop'
+
+            # Resolve GitHub workspace
+            $pwdWin = $env:GITHUB_WORKSPACE
+            if (-not $pwdWin) {
+            Write-Host "GITHUB_WORKSPACE empty; using current directory"
+            $pwdWin = (Get-Location).Path
+            }
+            Write-Host "PWD_WIN = $pwdWin"
+
+            # Debug listing
+            Get-ChildItem -Path $pwdWin -Recurse -Depth 1 | ForEach-Object { $_.FullName }
+
+            # Convert C:\path\to\repo -> /c/path/to/repo for MSYS
+            $drive = $pwdWin.Substring(0,1).ToLower()
+            $rest = $pwdWin.Substring(2) -replace '\\','/'
+            $msysPwd = "/$drive$rest"
+            Write-Host "MSYS_PWD = $msysPwd"
+
+            # Ensure script exists
+            if (-not (Test-Path (Join-Path $pwdWin 'scripts\build_ffmpeg_win.sh'))) {
+            Write-Error "ERROR: scripts/build_ffmpeg_win.sh not found in $pwdWin"
+            exit 2
+            }
+
+            # Locate Visual Studio via vswhere
+            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+            if (Test-Path $vswhere) {
+            $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            $vsInstall = $vsInstall.Trim()
+            }
+
+            if ($vsInstall -and (Test-Path (Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'))) {
+            Write-Host "Found VS at $vsInstall"
+            } else {
+            Write-Warning "vswhere not found or vcvars64.bat missing. Continuing but MSVC environment may be missing."
+            }
+
+            # Call MSYS bash with the MSYS path
+            $bash = 'C:\msys64\usr\bin\bash.exe'
+            if (-not (Test-Path $bash)) {
+            Write-Error "ERROR: MSYS2 bash not found at $bash"
             exit 1
-          )
+            }
+
+            if ($vsInstall) {
+            # Use cmd to call vcvars and then call msys bash in that env
+            $vcvars = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'
+            $cmd = "& `"$vcvars`" && `"$bash`" -lc 'cd \"$msysPwd\" && chmod +x scripts/build_ffmpeg_win.sh && ./scripts/build_ffmpeg_win.sh `"$PREFIX`"'"
+            Write-Host "Running: cmd /c $cmd"
+            cmd /c $cmd
+            } else {
+            & $bash -lc "cd '$msysPwd' && chmod +x scripts/build_ffmpeg_win.sh && ./scripts/build_ffmpeg_win.sh '$env:PREFIX'"
+            }
+
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
@@ -308,8 +323,8 @@ jobs:
 
       - name: Configure & build static FFmpeg
         run: |
-          chmod +x scripts/build_ffmpeg_unix.sh || true
-          ./scripts/build_ffmpeg_unix.sh "$PREFIX"
+          chmod +x scripts/build_ffmpeg_mac.sh || true
+          ./scripts/build_ffmpeg_mac.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
