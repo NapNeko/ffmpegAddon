@@ -64,7 +64,8 @@ CONFIGURE_FLAGS=(
   --enable-parser=mpegaudio \
   --enable-parser=vorbis \
   --enable-bsf=h264_mp4toannexb \
-  --enable-bsf=hevc_mp4toannexb
+  --enable-bsf=hevc_mp4toannexb \
+  --pkg-config-flags=--static
 )
 
 cd ffmpeg_src

@@ -77,6 +77,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-bsf=hevc_mp4toannexb \
   --disable-x86asm \
   --disable-inline-asm \
+  --pkg-config-flags=--static \
   --extra-cflags="$EXTRA_CFLAGS" \
   --extra-cxxflags="$EXTRA_CXXFLAGS" \
   --extra-ldflags="$EXTRA_LDFLAGS" \
