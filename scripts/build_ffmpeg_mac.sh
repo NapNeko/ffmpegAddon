@@ -28,19 +28,53 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
 
 ./configure \
   --prefix="$PREFIX" \
-  --enable-static \
-  --disable-shared \
+  --disable-everything \
   --disable-programs \
-  --disable-doc \
-  --disable-debug \
   --disable-ffplay \
   --disable-ffprobe \
+  --disable-doc \
+  --disable-debug \
   --enable-small \
-  --enable-avcodec \
+  --enable-stripping \
+  --disable-avdevice \
+  --disable-network \
+  --enable-protocol=file \
   --enable-avformat \
-  --enable-swresample \
-  --enable-swscale \
+  --enable-avcodec \
   --enable-avutil \
+  --enable-swscale \
+  --enable-swresample \
+  --enable-filter=scale \
+  --enable-filter=aresample \
+  --enable-demuxer=mov \
+  --enable-demuxer=mp4 \
+  --enable-demuxer=matroska \
+  --enable-demuxer=avi \
+  --enable-demuxer=flv \
+  --enable-demuxer=aac \
+  --enable-demuxer=mp3 \
+  --enable-demuxer=ogg \
+  --enable-demuxer=wav \
+  --enable-demuxer=flac \
+  --enable-demuxer=h264 \
+  --enable-demuxer=hevc \
+  --enable-decoder=aac \
+  --enable-decoder=mp3 \
+  --enable-decoder=vorbis \
+  --enable-decoder=flac \
+  --enable-decoder=pcm_s16le \
+  --enable-decoder=h264 \
+  --enable-decoder=hevc \
+  --enable-decoder=mjpeg \
+  --enable-decoder=vp8 \
+  --enable-decoder=vp9 \
+  --enable-parser=h264 \
+  --enable-parser=hevc \
+  --enable-parser=aac \
+  --enable-parser=mpegaudio \
+  --enable-parser=vorbis \
+  --enable-bsf=h264_mp4toannexb \
+  --enable-bsf=hevc_mp4toannexb \
   --extra-cflags="$EXTRA_CFLAGS" \
   --extra-cxxflags="$EXTRA_CXXFLAGS" \
   --extra-ldflags="$EXTRA_LDFLAGS" \
