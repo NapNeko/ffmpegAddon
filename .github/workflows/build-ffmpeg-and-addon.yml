@@ -25,7 +25,7 @@ jobs:
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
       - name: Apply repository patches to ffmpeg_src (if any)
         run: |
@@ -131,7 +131,7 @@ jobs:
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
-          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
       - name: Build FFmpeg (MSVC + MSYS2)
         env:
@@ -207,7 +207,7 @@ jobs:
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
       - name: Configure & cross-build static FFmpeg (x86_64-w64-mingw32)
         working-directory: ${{ github.workspace }}/ffmpeg_src
@@ -282,7 +282,7 @@ jobs:
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
       - name: Apply repository patches to ffmpeg_src (if any) on macOS
         run: |
