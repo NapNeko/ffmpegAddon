@@ -15,20 +15,56 @@ CONFIGURE_FLAGS=(
   --prefix="$PREFIX"
   --arch=x86_64
   --target-os=win64
-  --enable-static
-  --disable-programs
-  --disable-shared
-  --disable-ffplay
-  --disable-ffprobe
-  --disable-doc
-  --disable-debug
-  --enable-stripping
-  --enable-small
-  
-  --enable-avcodec
-  --enable-avformat
-  --enable-swscale
-  --enable-swresample
+
+  --disable-everything \
+  --disable-programs \
+  --disable-ffplay \
+  --disable-ffprobe \
+  --disable-doc \
+  --disable-debug \
+  --enable-small \
+  --enable-stripping \
+  --disable-avdevice \
+  --disable-network \
+  --enable-protocol=file \
+
+  --enable-avformat \
+  --enable-avcodec \
+  --enable-avutil \
+  --enable-swscale \
+  --enable-swresample \
+
+  --enable-filter=scale \
+  --enable-filter=aresample \
+  --enable-demuxer=mov \
+  --enable-demuxer=mp4 \
+  --enable-demuxer=matroska \
+  --enable-demuxer=avi \
+  --enable-demuxer=flv \
+  --enable-demuxer=aac \
+  --enable-demuxer=mp3 \
+  --enable-demuxer=ogg \
+  --enable-demuxer=wav \
+  --enable-demuxer=flac \
+  --enable-demuxer=h264 \
+  --enable-demuxer=hevc \
+  --enable-decoder=aac \
+  --enable-decoder=mp3 \
+  --enable-decoder=vorbis \
+  --enable-decoder=flac \
+  --enable-decoder=pcm_s16le \
+  --enable-decoder=h264 \
+  --enable-decoder=hevc \
+  --enable-decoder=mjpeg \
+  --enable-decoder=vp8 \
+  --enable-decoder=vp9 \
+  --enable-parser=h264 \
+  --enable-parser=hevc \
+  --enable-parser=aac \
+  --enable-parser=mpegaudio \
+  --enable-parser=vorbis \
+  --enable-bsf=h264_mp4toannexb \
+  --enable-bsf=hevc_mp4toannexb
 )
 
 cd ffmpeg_src
