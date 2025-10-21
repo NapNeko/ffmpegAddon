@@ -33,6 +33,9 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --disable-ffplay \
   --disable-ffprobe \
   --disable-doc \
+  --disable-iconv \
+  --disable-libilbc \
+  --disable-lzma \
   --disable-debug \
   --enable-small \
   --enable-stripping \

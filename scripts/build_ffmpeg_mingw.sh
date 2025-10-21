@@ -15,25 +15,25 @@ CONFIGURE_FLAGS=(
   --prefix="$PREFIX"
   --arch=x86_64
   --target-os=win64
-
   --disable-everything \
   --disable-programs \
   --disable-ffplay \
   --disable-ffprobe \
   --disable-doc \
+  --disable-iconv \
+  --disable-libilbc \
+  --disable-lzma \
   --disable-debug \
   --enable-small \
   --enable-stripping \
   --disable-avdevice \
   --disable-network \
   --enable-protocol=file \
-
   --enable-avformat \
   --enable-avcodec \
   --enable-avutil \
   --enable-swscale \
   --enable-swresample \
-
   --enable-filter=scale \
   --enable-filter=aresample \
   --enable-demuxer=mov \
