@@ -151,6 +151,12 @@ jobs:
         run: |
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
           echo "Using MSYS2 at: $MSYS2_LOCATION"
+
+          # 🔧 关键修复: 确保使用 gawk, 禁止路径自动转换
+          export MSYS2_ARG_CONV_EXCL="*"
+          pacman -S --noconfirm gawk make diffutils
+          export AWK=gawk
+
           chmod +x ./scripts/build_ffmpeg_win.sh || true
           ./scripts/build_ffmpeg_win.sh "$(cygpath -u "$PREFIX")"
 
