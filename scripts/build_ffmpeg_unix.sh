@@ -21,10 +21,18 @@ fi
 cd ffmpeg_src
 
 # Run configure with a conservative set of options similar to previous workflow
+# Build static libs but ensure objects are compiled with -fPIC so they can be linked
+# into shared objects (Node addon). We set EXTRA_CFLAGS and EXTRA_LDFLAGS to
+# request position-independent code. If you prefer shared libraries, change
+# --enable-static/--disable-shared accordingly.
+EXTRA_CFLAGS="-fPIC"
+EXTRA_LDFLAGS=""
+
 ./configure --prefix="$PREFIX" \
   --enable-static --disable-shared --disable-programs --disable-doc --disable-debug \
   --disable-ffplay --disable-ffprobe --enable-small --enable-avcodec --enable-avformat \
-  --enable-swresample --enable-swscale --enable-avutil
+  --enable-swresample --enable-swscale --enable-avutil \
+  "--extra-cflags=$EXTRA_CFLAGS" "--extra-ldflags=$EXTRA_LDFLAGS"
 
 # Determine CPU count safely for Linux and macOS
 if command -v nproc >/dev/null 2>&1; then

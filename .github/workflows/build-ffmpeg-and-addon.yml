@@ -196,13 +196,25 @@ jobs:
           )
           REM Run the build script using the MSYS2 bash executable installed by msys2/setup-msys2
           if exist "C:\\msys64\\usr\\bin\\bash.exe" (
+            REM prefer using GITHUB_WORKSPACE instead of current dir to avoid empty %CD%
+            if defined GITHUB_WORKSPACE (
+              set "PWD_WIN=%GITHUB_WORKSPACE%"
+            ) else (
+              set "PWD_WIN=%CD%"
+            )
             REM convert Windows current directory to MSYS path like D:/... -> /D/...
-            set "PWD_WIN=%CD%"
             set "MSYS_PWD=%PWD_WIN:\=/=%"
             set "DRIVE_LETTER=%MSYS_PWD:~0,1%"
             set "REST=%MSYS_PWD:~2%"
             set "MSYS_PWD=/%DRIVE_LETTER%%REST%"
+            echo PWD_WIN=%PWD_WIN%
             echo Running in MSYS path %MSYS_PWD%
+            REM show directory listing for debugging
+            if exist "%PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh" (
+              echo Found build script at %PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh
+            ) else (
+              echo WARNING: build script not found at %PWD_WIN%\\scripts\\build_ffmpeg_msvc.sh
+            )
             C:\\msys64\\usr\\bin\\bash.exe -lc "cd \"%MSYS_PWD%\" && if [ -f scripts/build_ffmpeg_msvc.sh ]; then chmod +x scripts/build_ffmpeg_msvc.sh && ./scripts/build_ffmpeg_msvc.sh \"$PREFIX\"; else echo \"ERROR: scripts/build_ffmpeg_msvc.sh not found in %MSYS_PWD%\"; exit 2; fi"
           ) else (
             echo ERROR: MSYS2 bash not found at C:\msys64\usr\bin\bash.exe. Ensure msys2/setup-msys2 step ran correctly.
