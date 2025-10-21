@@ -133,7 +133,7 @@ jobs:
           git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
 
       - name: Apply repository patches to ffmpeg_src (if any) on Windows
-        shell: 'bash --login -eo pipefail {0}'
+        shell: msys2 {0}
         run: |
           set -euo pipefail
           shopt -s nullglob || true
@@ -178,8 +178,7 @@ jobs:
           fi
 
       - name: Build FFmpeg with MSVC via provided script (MSYS2 bash)
-        # Run directly in MSYS2 bash to avoid PowerShell quoting issues
-        shell: 'bash --login -eo pipefail {0}'
+        shell: msys2 {0}
         run: |
           set -euo pipefail
           # Convert Windows GITHUB_WORKSPACE to MSYS path if needed
@@ -215,11 +214,11 @@ jobs:
         run: npm ci
 
       - name: Configure Node addon (point to built FFmpeg)
-        shell: 'bash --login -eo pipefail {0}'
+        shell: msys2 {0}
         run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Build Node addon (cmake-js) on Windows
-        shell: 'bash --login -eo pipefail {0}'
+        shell: msys2 {0}
         run: npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
