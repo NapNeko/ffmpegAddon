@@ -98,7 +98,7 @@ jobs:
           git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
 
       - name: Apply repository patches to ffmpeg_src (if any) on Windows
-        shell: bash --login -eo pipefail
+        shell: 'bash --login -eo pipefail {0}'
         run: |
           shopt -s nullglob || true
           if compgen -G "patches/*.patch" > /dev/null; then
@@ -114,14 +114,14 @@ jobs:
           fi
 
       - name: Build FFmpeg with MSVC via provided script
-        shell: bash --login -eo pipefail
+        shell: 'bash --login -eo pipefail {0}'
         run: |
           chmod +x scripts/build_ffmpeg_msvc.sh
           ./scripts/build_ffmpeg_msvc.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
-        shell: bash --login -eo pipefail
+        shell: 'bash --login -eo pipefail {0}'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
