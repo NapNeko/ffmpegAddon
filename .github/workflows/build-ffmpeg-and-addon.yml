@@ -177,32 +177,86 @@ jobs:
             echo "No patches found in patches/"
           fi
 
-      - name: Build FFmpeg with MSVC via provided script (MSYS2 bash)
-        shell: msys2 {0}
+      - name: Build FFmpeg with MSVC via provided script (activate MSVC then MSYS2 bash)
+        shell: pwsh
         run: |
-          set -euo pipefail
+          set -e
           # Convert Windows GITHUB_WORKSPACE to MSYS path if needed
-          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
-            win_pwd="$GITHUB_WORKSPACE"
-          else
-            win_pwd="$(pwd -W 2>/dev/null || pwd)"
-          fi
-          # Try to convert C:\... to /c/... (msys understands /c/drive paths)
-          msys_pwd="$(echo "$win_pwd" | sed -E 's#^([A-Za-z]):#\L/\1#; s#\\#/#g')"
-          echo "MSYS_PWD = $msys_pwd"
+          if ($env:GITHUB_WORKSPACE) {
+            $win_pwd = $env:GITHUB_WORKSPACE
+          } else {
+            # fallback to current working directory (Windows style)
+            $win_pwd = (pwd).Path
+          }
+          # Convert C:\... to /c/... for MSYS path
+          $msys_pwd = $win_pwd -replace '^(?i:([A-Za-z])):', '/$1' -replace '\\','/'
+          $msys_pwd = $msys_pwd.ToLower()
+          Write-Host "MSYS_PWD = $msys_pwd"
 
           # Ensure script exists
-          if [ ! -f "$msys_pwd/scripts/build_ffmpeg_win.sh" ]; then
-            echo "ERROR: scripts/build_ffmpeg_win.sh not found in $msys_pwd" >&2
-            ls -la "$msys_pwd" || true
+          if (-not (Test-Path "$msys_pwd/scripts/build_ffmpeg_win.sh")) {
+            Write-Host "ERROR: scripts/build_ffmpeg_win.sh not found in $msys_pwd";
+            Get-ChildItem -Force $msys_pwd | Select-Object -First 50
             exit 2
-          fi
+          }
 
-          # Make sure script is executable then run it with PREFIX
-          chmod +x "$msys_pwd/scripts/build_ffmpeg_win.sh" || true
-          cd "$msys_pwd"
-          # If Visual Studio environment is needed, the script should handle it; just pass PREFIX
-          ./scripts/build_ffmpeg_win.sh "$PREFIX"
+          # Try to locate vcvars64.bat using vswhere, then common install paths
+          $vcvars = $null
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          Write-Host "DEBUG: ProgramFiles(x86) = ${env:ProgramFiles(x86)}"
+          Write-Host "DEBUG: checking vswhere at: $vswhere"
+          if (Test-Path $vswhere) {
+            Write-Host "DEBUG: vswhere found, querying installationPath"
+            $inst = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null | Select-Object -First 1
+            Write-Host "DEBUG: vswhere returned: $inst"
+            if ($inst) { $candidate = Join-Path $inst 'VC\Auxiliary\Build\vcvars64.bat'; Write-Host "DEBUG: candidate vcvars from vswhere: $candidate"; if (Test-Path $candidate) { $vcvars = $candidate } }
+          }
+          # fallback common locations (print them for debugging)
+          if (-not $vcvars) {
+            $fallbacks = @(
+              'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat',
+              'C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat',
+              'C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat',
+              'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat'
+            )
+            Write-Host "DEBUG: checking fallback vcvars candidates:"
+            foreach ($p in $fallbacks) { Write-Host "  candidate: $p"; if (Test-Path $p) { Write-Host "  found: $p"; $vcvars = $p; break } }
+          }
+
+          if (-not $vcvars) {
+            Write-Host "ERROR: Could not find vcvars64.bat. Ensure Visual Studio with C++ build tools is installed.";
+            exit 3
+          }
+          Write-Host "Using vcvars: $vcvars"
+
+          # print debug info for paths
+          Write-Host "DEBUG: GITHUB_WORKSPACE = $env:GITHUB_WORKSPACE"
+          Write-Host "DEBUG: win_pwd = $win_pwd"
+          Write-Host "DEBUG: msys_pwd = $msys_pwd"
+
+          # Ensure msys bash exists (msys2/setup-msys2 installs it at C:\msys64\usr\bin\bash.exe)
+          $bash = 'C:\msys64\usr\bin\bash.exe'
+          if (-not (Test-Path $bash)) {
+            # try in PATH
+            $bash = (Get-Command bash.exe -ErrorAction SilentlyContinue).Source
+          }
+          if (-not $bash) { Write-Host "ERROR: msys2 bash not found at C:\\msys64\\usr\\bin\\bash.exe and not in PATH"; exit 4 }
+
+          # Call vcvars64 and then run MSYS2 bash in the same cmd session so cl.exe and environment are available to the build script
+          $prefixEsc = $env:PREFIX -replace '\\','\\\\'
+          # Use TEMP to store transient diagnostics
+          $clHelp = '%TEMP%\\cl_help.txt'
+          $envDump = '%TEMP%\\env_after_vcvars.txt'
+          $ffbuildLog = "$win_pwd\\ffmpeg_src\\ffbuild\\config.log"
+
+          # Build a cmd string that:
+          #  - calls vcvars64.bat
+          #  - records where cl.exe is and cl help output and environment variables
+          #  - runs msys2 bash to execute the build script
+          #  - on failure, prints the captured diagnostics and ffbuild/config.log (if present)
+          $cmd = "cmd /V:ON /c `"call `"$vcvars`" x64 && echo === WHERE CL === && where cl.exe || echo where-cl-failed && echo === CL HELP === && cl.exe /? > $clHelp 2>&1 || echo cl-help-failed && echo === ENV AFTER VCVARS === && set > $envDump && `"$bash`" -lc 'cd \"$msys_pwd\" && chmod +x ./scripts/build_ffmpeg_win.sh || true && ./scripts/build_ffmpeg_win.sh \"$prefixEsc\"' || (echo BUILD FAILED && echo ==== DIAGNOSTICS: CL HELP ==== & type $clHelp & echo ==== DIAGNOSTICS: ENV AFTER VCVARS ==== & type $envDump & if exist \"$ffbuildLog\" (echo ==== ffbuild/config.log ==== & type \"$ffbuildLog\") & exit 1) && (echo BUILD SUCCEEDED)`"
+          Write-Host "Running: $cmd"
+          iex $cmd
 
 
       - name: Setup Node.js
