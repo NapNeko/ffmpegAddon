@@ -184,8 +184,11 @@ jobs:
           which cmake || true
           cmake --version || true
           # Convert mingw compiler paths and PREFIX to Windows-style full paths so CMake sees real .exe files
-          WIN_CC="$(cygpath -w /mingw64/bin/gcc).exe"
-          WIN_CXX="$(cygpath -w /mingw64/bin/g++).exe"
+          WIN_CC="$(cygpath -w /mingw64/bin/gcc)"
+          WIN_CXX="$(cygpath -w /mingw64/bin/g++)"
+          # ensure exactly one .exe suffix (cygpath may already include .exe)
+          WIN_CC="${WIN_CC%.exe}.exe"
+          WIN_CXX="${WIN_CXX%.exe}.exe"
           WIN_PREFIX="$(cygpath -w "$PREFIX")"
           echo "Using CC=$WIN_CC CXX=$WIN_CXX FFMPEG_SOURCE_DIR=$WIN_PREFIX"
           # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers (pass full Windows paths)
