@@ -155,8 +155,8 @@ jobs:
           # Ensure mingw64 bin is first in PATH so cmake/gcc from mingw are used
           export PATH="/mingw64/bin:$PATH"
           # Prefer the mingw-w64 toolchain explicitly by exporting CC/CXX
-          export CC=/mingw64/bin/x86_64-w64-mingw32-gcc
-          export CXX=/mingw64/bin/x86_64-w64-mingw32-g++
+          export CC=/mingw64/bin/gcc
+          export CXX=/mingw64/bin/g++
           echo "--- Diagnostics before npm ci ---"
           which node || true
           node --version || true
@@ -174,8 +174,8 @@ jobs:
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
           # Ensure mingw64 toolchain is first and force CC/CXX for cmake-js
           export PATH="/mingw64/bin:$PATH"
-          export CC=/mingw64/bin/x86_64-w64-mingw32-gcc
-          export CXX=/mingw64/bin/x86_64-w64-mingw32-g++
+          export CC=/mingw64/bin/gcc
+          export CXX=/mingw64/bin/g++
           echo "--- Diagnostics before cmake-js configure ---"
           which node || true
           node --version || true
@@ -184,7 +184,7 @@ jobs:
           which cmake || true
           cmake --version || true
           # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers
-          npx cmake-js configure -G "MinGW Makefiles" --cc /mingw64/bin/x86_64-w64-mingw32-gcc --cxx /mingw64/bin/x86_64-w64-mingw32-g++ -- -DFFMPEG_SOURCE_DIR="$(cygpath -u "$PREFIX")"
+          npx cmake-js configure -G "MinGW Makefiles" --cc /mingw64/bin/gcc --cxx /mingw64/bin/g++ -- -DFFMPEG_SOURCE_DIR="$(cygpath -u "$PREFIX")"
           npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
