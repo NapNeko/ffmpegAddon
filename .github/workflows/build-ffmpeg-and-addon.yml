@@ -120,6 +120,8 @@ jobs:
         id: msys2
         uses: msys2/setup-msys2@v2
         with:
+          cache: true
+          path-type: inherit
           update: true
           install: >-
             base-devel
@@ -138,28 +140,9 @@ jobs:
             MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
         shell: cmd
         run: |
-            rem 1️⃣ 激活 MSVC
-            echo Activating MSVC vcvarsall.bat ...
-            if not exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-              echo ERROR: vcvarsall.bat not found at expected path
-              dir "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\"
-              exit /b 1
-            )
-            call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-
-            rem 2️⃣ 调试输出并检查 MSYS2_LOCATION
-            echo MSYS2_LOCATION=%MSYS2_LOCATION%
-            if not exist "%MSYS2_LOCATION%\usr\bin\bash.exe" (
-              echo ERROR: bash.exe not found under %MSYS2_LOCATION%\usr\bin
-              dir "%MSYS2_LOCATION%\usr\bin"
-              exit /b 1
-            )
-
-            rem 3️⃣ 把 Windows 路径由 cmd 展开后传给 bash，再由 bash 用 cygpath 转换为 Unix 风格路径并执行构建脚本
-            rem Use temporary env vars inside the bash invocation so bash can run cygpath on them
             "%MSYS2_LOCATION%\usr\bin\bash.exe" -l -c "GITHUB_WORKSPACE_WIN='%GITHUB_WORKSPACE%' PREFIX_WIN='%PREFIX%'; echo bash: GITHUB_WORKSPACE_WIN=$GITHUB_WORKSPACE_WIN PREFIX_WIN=$PREFIX_WIN; cd \"$(cygpath -u \"$GITHUB_WORKSPACE_WIN\")\" && ./scripts/build_ffmpeg_win.sh \"$(cygpath -u \"$PREFIX_WIN\")\""
 
-
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Build FFmpeg
         shell: msys2 {0}
         run: |
@@ -190,81 +173,6 @@ jobs:
             build\*
             Release\*
             buildout\lib
-  build-windows-cross:
-    name: Cross-build Windows artifacts on Ubuntu (mingw-w64)
-    runs-on: ubuntu-latest
-    env:
-      PREFIX: ${{ github.workspace }}/buildout-w64
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies for cross-build
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y autoconf automake build-essential pkg-config yasm nasm git mingw-w64 cmake gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 pkg-config-mingw-w64
-
-      - name: Clone FFmpeg release/7.1 into ffmpeg_src
-        run: |
-          rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
-
-      - name: Configure & cross-build static FFmpeg (x86_64-w64-mingw32)
-        working-directory: ${{ github.workspace }}/ffmpeg_src
-        run: |
-          set -e
-          mkdir -p build-cross
-          cd build-cross
-          # Use mingw-w64 cross compilers
-          PKG_CONFIG_PATH="${{ env.PREFIX }}/lib/pkgconfig:${{ env.PREFIX }}/lib64/pkgconfig" \
-          CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ AR=x86_64-w64-mingw32-ar RANLIB=x86_64-w64-mingw32-ranlib \
-          ../configure --prefix="$(pwd)/../install" --cross-prefix=x86_64-w64-mingw32- --enable-static --disable-shared --disable-programs --disable-doc \
-            --enable-pic --disable-debug --enable-small --enable-avcodec --enable-avformat --enable-avutil --enable-swresample --enable-swscale || (cat config.log && false)
-          make -j$(nproc)
-          make install
-          # copy outputs into workspace buildout prefix
-          mkdir -p "${{ env.PREFIX }}"
-          cp -r ../install/* "${{ env.PREFIX }}"
-
-      - name: Show built libs
-        run: ls -la "${{ env.PREFIX }}/lib" || true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install npm deps
-        run: npm ci
-
-      - name: Configure Node addon for cross toolchain
-        run: |
-          # Configure CMake to use the mingw-w64 cross compilers
-          mkdir -p build-mingw
-          cd build-mingw
-          CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ cmake -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DFFMPEG_SOURCE_DIR="${{ env.PREFIX }}" ..
-
-      - name: Build Node addon with mingw toolchain
-        run: |
-          # Use cmake-js so node-addon-api/node-api-headers wiring behaves like other jobs
-          cd build-mingw
-          export CC=x86_64-w64-mingw32-gcc
-          export CXX=x86_64-w64-mingw32-g++
-          # Configure via cmake-js and pass CMake args to mark target system as Windows
-          npx cmake-js configure -- -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX -DFFMPEG_SOURCE_DIR="${{ env.PREFIX }}"
-          npx cmake-js build --arch=x64 --runtime=node
-
-      - name: Collect cross-build artifacts
-        run: |
-          mkdir -p artifacts
-          cp -r build-mingw/*.node artifacts/ || true
-          cp -r "${{ env.PREFIX }}/lib" artifacts/ || true
-      - name: Upload cross-built addon
-        uses: actions/upload-artifact@v4
-        with:
-          name: ffmpeg-addon-windows-cross
-          path: |
-            artifacts/*
   build-macos:
     name: Build on macOS
     runs-on: macos-latest
