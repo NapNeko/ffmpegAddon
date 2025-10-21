@@ -4,7 +4,6 @@
   "description": "FFmpeg Addon for Node.js",
   "main": "index.js",
   "scripts": {
-    "install": "cmake-js build",
     "configure": "cmake-js configure",
     "build": "cmake-js rebuild",
     "build:cross": "./scripts/build_ffmpeg_mingw.sh ./buildout-w64",
