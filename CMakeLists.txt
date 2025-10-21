@@ -250,13 +250,24 @@ if(AVFORMAT_INCLUDE_DIR)
                 target_link_libraries(${PROJECT_NAME} PRIVATE ${_shared_ffmpeg_libs})
             endif()
 
-            # Common Windows system libraries that FFmpeg objects may depend on.
-            # Common Windows system libraries that FFmpeg objects may depend on.
-            # Add libraries frequently required by FFmpeg builds (bz2 for bzip2,
-            # ncrypt/crypt32/ole32 for Windows crypto and cert functions).
-            set(_ffmpeg_sys_libs ws2_32 winmm shlwapi advapi32 bcrypt ncrypt crypt32 ole32 bz2)
-            message(STATUS "Also linking system libraries: ${_ffmpeg_sys_libs}")
-            target_link_libraries(${PROJECT_NAME} PRIVATE ${_ffmpeg_sys_libs})
+            # Link only platform-appropriate system libraries.
+            if(WIN32)
+                # Common Windows system libraries that FFmpeg objects may depend on.
+                set(_ffmpeg_sys_libs ws2_32 winmm shlwapi advapi32 bcrypt ncrypt crypt32 ole32 bz2)
+                message(STATUS "Also linking Windows system libraries: ${_ffmpeg_sys_libs}")
+                target_link_libraries(${PROJECT_NAME} PRIVATE ${_ffmpeg_sys_libs})
+            else()
+                # On non-Windows platforms, only link commonly available libraries
+                # that FFmpeg may require (bz2 for bzip2). Other Windows libs are
+                # not present and should not be linked on Linux runners.
+                find_library(BZ2_LIB bz2)
+                if(BZ2_LIB)
+                    message(STATUS "Linking bz2: ${BZ2_LIB}")
+                    target_link_libraries(${PROJECT_NAME} PRIVATE ${BZ2_LIB})
+                else()
+                    message(STATUS "bz2 not found; skipping")
+                endif()
+            endif()
         endif()
 
         target_compile_definitions(${PROJECT_NAME} PRIVATE HAVE_FFMPEG=1)

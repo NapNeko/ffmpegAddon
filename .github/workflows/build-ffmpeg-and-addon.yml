@@ -29,14 +29,48 @@ jobs:
 
       - name: Apply repository patches to ffmpeg_src (if any)
         run: |
+          set -euo pipefail
           if compgen -G "patches/*.patch" > /dev/null; then
             echo "Applying patches to ffmpeg_src"
-            cp patches/*.patch ffmpeg_src/ || true
+            mkdir -p ffmpeg_src
+            cp -v patches/*.patch ffmpeg_src/ || true
             cd ffmpeg_src
-            # set local git identity to avoid 'Please tell me who you are' in CI
             git config user.email "action@users.noreply.github.com"
             git config user.name "GitHub Actions"
-            git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
+            # try git am first
+            if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+              echo "git am succeeded"
+            else
+              echo "git am failed; showing current patch and trying fallback"
+              git am --show-current-patch=diff || true
+              git status --porcelain --untracked-files=all || true
+              # fallback: try applying patches with dos2unix then git apply
+              if command -v dos2unix >/dev/null 2>&1; then
+                dos2unix *.patch || true
+              else
+                sed -i 's/\r$//' *.patch || true
+              fi
+              # attempt git am again
+              if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+                echo "git am succeeded after normalizing line endings"
+              else
+                echo "git am still failed; trying git apply --reject --whitespace=fix"
+                if git apply --reject --whitespace=fix *.patch; then
+                  echo "git apply succeeded"
+                  # commit the results
+                  git add -A
+                  git commit -m "Apply patches (git apply fallback)" || true
+                else
+                  echo "git apply failed; dumping diagnostic info"
+                  git am --abort || true
+                  echo "--- failed patch diff ---"
+                  git diff --no-prefix || true
+                  echo "--- ls -la ---"
+                  ls -la
+                  exit 1
+                fi
+              fi
+            fi
           else
             echo "No patches found in patches/"
           fi
@@ -60,8 +94,11 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
+      - name: Configure Node addon (point to built FFmpeg)
+        run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+
       - name: Build Node addon (cmake-js)
-        run: npx cmake-js build --arch=x64 --runtime=node
+        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -100,15 +137,44 @@ jobs:
       - name: Apply repository patches to ffmpeg_src (if any) on Windows
         shell: 'bash --login -eo pipefail {0}'
         run: |
+          set -euo pipefail
           shopt -s nullglob || true
           if compgen -G "patches/*.patch" > /dev/null; then
             echo "Applying patches to ffmpeg_src"
-            cp patches/*.patch ffmpeg_src/ || true
+            mkdir -p ffmpeg_src
+            cp -v patches/*.patch ffmpeg_src/ || true
             cd ffmpeg_src
-            # set local git identity to avoid 'Please tell me who you are' in CI
             git config user.email "action@users.noreply.github.com"
             git config user.name "GitHub Actions"
-            git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
+            if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+              echo "git am succeeded"
+            else
+              echo "git am failed; showing current patch and trying fallback"
+              git am --show-current-patch=diff || true
+              git status --porcelain --untracked-files=all || true
+              # Normalize line endings on Windows runner (use sed if dos2unix unavailable)
+              if command -v dos2unix >/dev/null 2>&1; then
+                dos2unix *.patch || true
+              else
+                sed -i 's/\r$//' *.patch || true
+              fi
+              if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+                echo "git am succeeded after normalizing line endings"
+              else
+                echo "git am still failed; trying git apply --reject --whitespace=fix"
+                if git apply --reject --whitespace=fix *.patch; then
+                  echo "git apply succeeded"
+                  git add -A
+                  git commit -m "Apply patches (git apply fallback)" || true
+                else
+                  echo "git apply failed; dumping diagnostic info"
+                  git am --abort || true
+                  git diff --no-prefix || true
+                  ls -la || true
+                  exit 1
+                fi
+              fi
+            fi
           else
             echo "No patches found in patches/"
           fi
@@ -131,8 +197,13 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
+      - name: Configure Node addon (point to built FFmpeg)
+        shell: 'bash --login -eo pipefail {0}'
+        run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+
       - name: Build Node addon (cmake-js) on Windows
-        run: npx cmake-js build --arch=x64 --runtime=node
+        shell: 'bash --login -eo pipefail {0}'
+        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -142,3 +213,92 @@ jobs:
             build\*
             Release\*
             buildout\lib
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+    env:
+      PREFIX: ${{ github.workspace }}/buildout
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies (Homebrew)
+        run: |
+          brew update
+          brew install automake autoconf pkg-config yasm nasm libtool git python3
+
+      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+        run: |
+          rm -rf ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+
+      - name: Apply repository patches to ffmpeg_src (if any) on macOS
+        run: |
+          set -euo pipefail
+          if compgen -G "patches/*.patch" > /dev/null; then
+            echo "Applying patches to ffmpeg_src"
+            mkdir -p ffmpeg_src
+            cp -v patches/*.patch ffmpeg_src/ || true
+            cd ffmpeg_src
+            git config user.email "action@users.noreply.github.com"
+            git config user.name "GitHub Actions"
+            if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+              echo "git am succeeded"
+            else
+              echo "git am failed; showing current patch and trying fallback"
+              git am --show-current-patch=diff || true
+              git status --porcelain --untracked-files=all || true
+              sed -i '' -e $'s/\r$//' *.patch || true
+              if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
+                echo "git am succeeded after normalizing line endings"
+              else
+                echo "git am still failed; trying git apply --reject --whitespace=fix"
+                if git apply --reject --whitespace=fix *.patch; then
+                  echo "git apply succeeded"
+                  git add -A
+                  git commit -m "Apply patches (git apply fallback)" || true
+                else
+                  echo "git apply failed; dumping diagnostic info"
+                  git am --abort || true
+                  git diff --no-prefix || true
+                  ls -la || true
+                  exit 1
+                fi
+              fi
+            fi
+          else
+            echo "No patches found in patches/"
+          fi
+
+      - name: Configure & build static FFmpeg
+        run: |
+          cd ffmpeg_src
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-programs --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-small --enable-avcodec --enable-avformat --enable-swresample --enable-swscale --enable-avutil
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Show installed libs
+        run: ls -la "$PREFIX/lib" || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Configure Node addon (point to built FFmpeg)
+        run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+
+      - name: Build Node addon (cmake-js)
+        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+
+      - name: Upload built addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-addon-macos
+          path: |
+            build/*
+            Release/*
+            buildout/lib
