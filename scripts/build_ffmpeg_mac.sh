@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# build_ffmpeg_unix.sh
-# Usage: build_ffmpeg_unix.sh <prefix>
-# Example: build_ffmpeg_unix.sh /home/runner/work/repo/buildout
-
 PREFIX=${1:-}
 if [ -z "$PREFIX" ]; then
   echo "Usage: $0 <install-prefix>" >&2

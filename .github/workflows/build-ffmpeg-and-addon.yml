@@ -177,68 +177,34 @@ jobs:
             echo "No patches found in patches/"
           fi
 
-      - name: Build FFmpeg with MSVC via provided script (PowerShell -> MSYS2)
-        shell: pwsh
-        run: |
-            $ErrorActionPreference = 'Stop'
-
-            # Resolve GitHub workspace
-            $pwdWin = $env:GITHUB_WORKSPACE
-            if (-not $pwdWin) {
-            Write-Host "GITHUB_WORKSPACE empty; using current directory"
-            $pwdWin = (Get-Location).Path
-            }
-            Write-Host "PWD_WIN = $pwdWin"
-
-            # Debug listing
-            Get-ChildItem -Path $pwdWin -Recurse -Depth 1 | ForEach-Object { $_.FullName }
-
-            # Convert C:\path\to\repo -> /c/path/to/repo for MSYS
-            $drive = $pwdWin.Substring(0,1).ToLower()
-            $rest = $pwdWin.Substring(2) -replace '\\','/'
-            $msysPwd = "/$drive$rest"
-            Write-Host "MSYS_PWD = $msysPwd"
-
-            # Ensure script exists
-            if (-not (Test-Path (Join-Path $pwdWin 'scripts\build_ffmpeg_win.sh'))) {
-            Write-Error "ERROR: scripts/build_ffmpeg_win.sh not found in $pwdWin"
-            exit 2
-            }
-
-            # Locate Visual Studio via vswhere
-            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-            if (Test-Path $vswhere) {
-            $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-            $vsInstall = $vsInstall.Trim()
-            }
-
-            if ($vsInstall -and (Test-Path (Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'))) {
-            Write-Host "Found VS at $vsInstall"
-            } else {
-            Write-Warning "vswhere not found or vcvars64.bat missing. Continuing but MSVC environment may be missing."
-            }
-
-            # Call MSYS bash with the MSYS path
-            $bash = 'C:\msys64\usr\bin\bash.exe'
-            if (-not (Test-Path $bash)) {
-            Write-Error "ERROR: MSYS2 bash not found at $bash"
-            exit 1
-            }
-
-            if ($vsInstall) {
-            # Use cmd to call vcvars and then call msys bash in that env
-            $vcvars = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'
-            $cmd = "& `"$vcvars`" && `"$bash`" -lc 'cd \"$msysPwd\" && chmod +x scripts/build_ffmpeg_win.sh && ./scripts/build_ffmpeg_win.sh `"$PREFIX`"'"
-            Write-Host "Running: cmd /c $cmd"
-            cmd /c $cmd
-            } else {
-            & $bash -lc "cd '$msysPwd' && chmod +x scripts/build_ffmpeg_win.sh && ./scripts/build_ffmpeg_win.sh '$env:PREFIX'"
-            }
-
-
-      - name: Show installed libs
-        run: ls -la "$PREFIX/lib" || true
+      - name: Build FFmpeg with MSVC via provided script (MSYS2 bash)
+        # Run directly in MSYS2 bash to avoid PowerShell quoting issues
         shell: 'bash --login -eo pipefail {0}'
+        run: |
+          set -euo pipefail
+          # Convert Windows GITHUB_WORKSPACE to MSYS path if needed
+          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
+            win_pwd="$GITHUB_WORKSPACE"
+          else
+            win_pwd="$(pwd -W 2>/dev/null || pwd)"
+          fi
+          # Try to convert C:\... to /c/... (msys understands /c/drive paths)
+          msys_pwd="$(echo "$win_pwd" | sed -E 's#^([A-Za-z]):#\L/\1#; s#\\#/#g')"
+          echo "MSYS_PWD = $msys_pwd"
+
+          # Ensure script exists
+          if [ ! -f "$msys_pwd/scripts/build_ffmpeg_win.sh" ]; then
+            echo "ERROR: scripts/build_ffmpeg_win.sh not found in $msys_pwd" >&2
+            ls -la "$msys_pwd" || true
+            exit 2
+          fi
+
+          # Make sure script is executable then run it with PREFIX
+          chmod +x "$msys_pwd/scripts/build_ffmpeg_win.sh" || true
+          cd "$msys_pwd"
+          # If Visual Studio environment is needed, the script should handle it; just pass PREFIX
+          ./scripts/build_ffmpeg_win.sh "$PREFIX"
+
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
