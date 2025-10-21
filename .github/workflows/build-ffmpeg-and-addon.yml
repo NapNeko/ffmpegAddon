@@ -33,6 +33,9 @@ jobs:
             echo "Applying patches to ffmpeg_src"
             cp patches/*.patch ffmpeg_src/ || true
             cd ffmpeg_src
+            # set local git identity to avoid 'Please tell me who you are' in CI
+            git config user.email "action@users.noreply.github.com"
+            git config user.name "GitHub Actions"
             git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
           else
             echo "No patches found in patches/"
@@ -102,6 +105,9 @@ jobs:
             echo "Applying patches to ffmpeg_src"
             cp patches/*.patch ffmpeg_src/ || true
             cd ffmpeg_src
+            # set local git identity to avoid 'Please tell me who you are' in CI
+            git config user.email "action@users.noreply.github.com"
+            git config user.name "GitHub Actions"
             git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
           else
             echo "No patches found in patches/"
