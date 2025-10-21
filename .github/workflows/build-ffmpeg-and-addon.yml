@@ -122,22 +122,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install MSYS2 and required packages
         id: msys2
         uses: msys2/setup-msys2@v2
         with:
+          path-type: inherit
           cache: true
           update: true
           install: >-
-            base-devel
             git
-            mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-yasm
             mingw-w64-x86_64-nasm
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-libiconv
-            mingw-w64-x86_64-xz
             mingw-w64-x86_64-nodejs
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
@@ -145,31 +144,23 @@ jobs:
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
-      - name: Build FFmpeg (MSYS2 + mingw64)
+      - name: Build FFmpeg
         env:
           MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
         shell: msys2 {0}
         run: |
-          # Enter msys2/mingw64 environment and run FFmpeg build script
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
           echo "Using MSYS2 at: $MSYS2_LOCATION"
-          chmod +x ./scripts/build_ffmpeg_mingw.sh || true
-          ./scripts/build_ffmpeg_mingw.sh "$(cygpath -u "$PREFIX")"
+          chmod +x ./scripts/build_ffmpeg_win.sh || true
+          ./scripts/build_ffmpeg_win.sh "$(cygpath -u "$PREFIX")"
 
       - name: Install npm deps (inside msys2)
         shell: msys2 {0}
         run: |
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
-          # Ensure mingw64 bin is first in PATH so cmake/gcc from mingw are used
-          export PATH="/mingw64/bin:$PATH"
-          # Prefer the mingw-w64 toolchain explicitly by exporting CC/CXX
-          export CC=/mingw64/bin/gcc
-          export CXX=/mingw64/bin/g++
           echo "--- Diagnostics before npm ci ---"
           which node || true
           node --version || true
-          which gcc || true
-          gcc --version || true
           which cmake || true
           cmake --version || true
           which pkg-config || true
@@ -180,27 +171,8 @@ jobs:
         shell: msys2 {0}
         run: |
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
-          # Ensure mingw64 toolchain is first and force CC/CXX for cmake-js
-          export PATH="/mingw64/bin:$PATH"
-          export CC=/mingw64/bin/gcc
-          export CXX=/mingw64/bin/g++
-          echo "--- Diagnostics before cmake-js configure ---"
-          which node || true
-          node --version || true
-          which gcc || true
-          gcc --version || true
-          which cmake || true
-          cmake --version || true
-          # Convert mingw compiler paths and PREFIX to Windows-style full paths so CMake sees real .exe files
-          WIN_CC="$(cygpath -w /mingw64/bin/gcc)"
-          WIN_CXX="$(cygpath -w /mingw64/bin/g++)"
-          # ensure exactly one .exe suffix (cygpath may already include .exe)
-          WIN_CC="${WIN_CC%.exe}.exe"
-          WIN_CXX="${WIN_CXX%.exe}.exe"
           WIN_PREFIX="$(cygpath -w "$PREFIX")"
-          echo "Using CC=$WIN_CC CXX=$WIN_CXX FFMPEG_SOURCE_DIR=$WIN_PREFIX"
-          # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers (pass full Windows paths)
-          npx cmake-js configure -G "MinGW Makefiles" --cc "$WIN_CC" --cxx "$WIN_CXX" -- -DFFMPEG_SOURCE_DIR="$WIN_PREFIX"
+          npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$WIN_PREFIX"
           npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon

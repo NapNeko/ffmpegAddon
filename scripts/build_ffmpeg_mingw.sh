@@ -12,9 +12,9 @@ fi
 echo "Install prefix: $PREFIX"
 
 CONFIGURE_FLAGS=(
-  --prefix="$PREFIX"
-  --arch=x86_64
-  --target-os=win64
+  --prefix="$PREFIX" \
+  --arch=x86_64 \
+  --target-os=win64 \
   --disable-everything \
   --disable-programs \
   --disable-ffplay \

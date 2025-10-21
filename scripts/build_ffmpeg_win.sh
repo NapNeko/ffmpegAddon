@@ -1,62 +1,103 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FFmpeg minimal build script for MSVC (via MSYS2)
-# Works when run inside MSYS2 shell started from
-# "x64 Native Tools Command Prompt for VS 2022"
-# Usage:
-#   ./scripts/build_ffmpeg_msvc_trim.sh [install_prefix]
+# Minimal FFmpeg cross-build script for mingw-w64 on Linux
+# Usage: ./scripts/build_ffmpeg_mingw.sh <install_prefix>
 
-# default install prefix
-PREFIX="$(pwd)/buildout"
+PREFIX="$(pwd)/buildout-w64"
 if [ "$#" -ge 1 ]; then
   PREFIX="$1"
 fi
 
-# Convert MSYS path (/e/... style) to Windows style for MSVC
-if [[ "$PREFIX" == /* ]]; then
-  PREFIX_WIN=$(cygpath -m "$PREFIX")
-else
-  PREFIX_WIN="$PREFIX"
-fi
-
-echo "Install prefix (MSYS): $PREFIX"
-echo "Install prefix (Windows): $PREFIX_WIN"
-echo
+echo "Install prefix: $PREFIX"
 
 CONFIGURE_FLAGS=(
-  --prefix="$PREFIX_WIN"
-  --toolchain=msvc
-  --arch=x86_64
-  --target-os=win64
-  --disable-ffplay
-  --disable-ffprobe
-  --disable-doc
-  --disable-debug
-  --enable-stripping
-  --enable-small
-
-  --enable-avcodec
-  --enable-avformat
-  --enable-swscale
-  --enable-swresample
+  --prefix="$PREFIX" \
+  --toolchain=msvc \
+  --arch=x86_64 \
+  --target-os=win64 \
+  --disable-everything \
+  --disable-programs \
+  --disable-ffplay \
+  --disable-ffprobe \
+  --disable-doc \
+  --disable-iconv \
+  --disable-bzlib \
+  --disable-libilbc \
+  --disable-lzma \
+  --disable-debug \
+  --enable-small \
+  --enable-stripping \
+  --disable-avdevice \
+  --disable-network \
+  --enable-protocol=file \
+  --enable-avformat \
+  --enable-avcodec \
+  --enable-avutil \
+  --enable-swscale \
+  --enable-swresample \
+  --enable-filter=scale \
+  --enable-filter=aresample \
+  --enable-demuxer=mov \
+  --enable-demuxer=mp4 \
+  --enable-demuxer=matroska \
+  --enable-demuxer=avi \
+  --enable-demuxer=flv \
+  --enable-demuxer=aac \
+  --enable-demuxer=mp3 \
+  --enable-demuxer=ogg \
+  --enable-demuxer=wav \
+  --enable-demuxer=flac \
+  --enable-demuxer=h264 \
+  --enable-demuxer=hevc \
+  --enable-decoder=aac \
+  --enable-decoder=mp3 \
+  --enable-decoder=vorbis \
+  --enable-decoder=flac \
+  --enable-decoder=pcm_s16le \
+  --enable-decoder=h264 \
+  --enable-decoder=hevc \
+  --enable-decoder=mjpeg \
+  --enable-decoder=vp8 \
+  --enable-decoder=vp9 \
+  --enable-parser=h264 \
+  --enable-parser=hevc \
+  --enable-parser=aac \
+  --enable-parser=mpegaudio \
+  --enable-parser=vorbis \
+  --enable-bsf=h264_mp4toannexb \
+  --enable-bsf=hevc_mp4toannexb \
+  --pkg-config-flags=--static
 )
 
-echo "Configuring with minimal MSVC options..."
 cd ffmpeg_src
+
+# Ensure the cross compilers are available
+if ! command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+  echo "Error: x86_64-w64-mingw32-gcc not found in PATH. Install mingw-w64 toolchain."
+  exit 2
+fi
+
+echo "Configuring FFmpeg for mingw cross-build..."
 ./configure "${CONFIGURE_FLAGS[@]}"
 
 echo "Running make -j$(nproc || echo 4)"
 make -j"$(nproc || echo 4)"
+
 echo "Running make install"
 make install
 
+# Copy install to a normalized prefix (avoid weird relative paths)
+mkdir -p "$PREFIX"
+cp -r "$(pwd)/install/"* "$PREFIX" || true
+
 echo
-echo "✅ Build complete. Installed to: $PREFIX_WIN"
-cd ..
 cat <<'EOF'
+✅ Cross-build complete. Installed to: $PREFIX
 Notes:
-- This build is minimal: supports audio decode to PCM and container demuxing.
-- Ensure you're running this from an MSYS2 shell launched via Visual Studio Developer Command Prompt.
-- If you see 'cl.exe is unable to create an executable file', check that vcvars64.bat has been run.
+- This is a minimal cross-build for x86_64-w64-mingw32.
+- If you need MSVC-compatible .lib files, you must build FFmpeg with MSVC.
+- The produced libraries are GNU-style static (.a) and should be linkable by MinGW-built addons.
 EOF
+
+cd ..
