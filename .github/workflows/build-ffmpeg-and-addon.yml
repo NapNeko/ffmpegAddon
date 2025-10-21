@@ -103,8 +103,14 @@ jobs:
         with:
           name: ffmpeg-addon-linux
           path: |
-            build/*
-            Release/*
+            build/**/*.node
+            Release/**/*.node
+      - name: Upload FFmpeg headers and libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-libs-linux
+          path: |
+            buildout/include
             buildout/lib
 
   build-windows:
@@ -202,8 +208,15 @@ jobs:
         with:
           name: ffmpeg-addon-windows
           path: |
-            build\*
-            Release\*
+            build\**\*.node
+            Release\**\*.node
+            buildout\lib\**\*.node
+      - name: Upload FFmpeg headers and libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-libs-windows
+          path: |
+            buildout\include
             buildout\lib
 
   build-macos:
@@ -290,6 +303,12 @@ jobs:
         with:
           name: ffmpeg-addon-macos
           path: |
-            build/*
-            Release/*
+            build/**/*.node
+            Release/**/*.node
+      - name: Upload FFmpeg headers and libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-libs-macos
+          path: |
+            buildout/include
             buildout/lib
