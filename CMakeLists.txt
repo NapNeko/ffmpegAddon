@@ -357,6 +357,38 @@ if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE _WIN32 WIN32_LEAN_AND_MEAN)
 endif()
 
+# Link Windows system libraries commonly required for media APIs and
+# Windows-specific runtime dependencies. Previously these were embedded in
+# source files via "#pragma comment(lib, ...)". Prefer managing them here
+# so the build system can control platform/toolchain specifics.
+if(WIN32)
+    # Minimal list of system libs; adjust if your FFmpeg build or features
+    # require additional system dependencies.
+    set(_win_sys_libs
+        Mfuuid
+        Strmiids
+        Mfplat
+        Bcrypt
+        Secur32
+    )
+
+    if(MSVC)
+        # MSVC accepts plain .lib names
+        target_link_libraries(${PROJECT_NAME} PRIVATE ${_win_sys_libs})
+    else()
+        # Non-MSVC (e.g., MinGW) may need different naming (lib*.a) or -l flags.
+        # Try to link using -l flags for portability; fallback to raw names.
+        set(_win_link_flags "")
+        foreach(_l IN LISTS _win_sys_libs)
+            # add -l<name> token which MinGW/gcc understands
+            list(APPEND _win_link_flags "-l${_l}")
+        endforeach()
+        if(_win_link_flags)
+            target_link_options(${PROJECT_NAME} PRIVATE ${_win_link_flags})
+        endif()
+    endif()
+endif()
+
 # Compiler options
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE 

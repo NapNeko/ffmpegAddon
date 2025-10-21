@@ -1,12 +1,6 @@
 // FFmpeg N-API addon (trimmed build expectations)
 #include <napi.h>
 #include <iostream>
-#pragma comment(lib, "Mfuuid.lib")
-#pragma comment(lib, "Strmiids.lib")
-#pragma comment(lib, "Mfplat.lib")
-#pragma comment(lib, "Bcrypt.lib")
-#pragma comment(lib, "Secur32.lib")
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>

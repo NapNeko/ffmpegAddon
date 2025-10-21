@@ -78,10 +78,8 @@ jobs:
 
       - name: Configure & build static FFmpeg
         run: |
-          cd ffmpeg_src
-          ./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-programs --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-small --enable-avcodec --enable-avformat --enable-swresample --enable-swscale --enable-avutil
-          make -j$(nproc)
-          make install
+          chmod +x scripts/build_ffmpeg_unix.sh || true
+          ./scripts/build_ffmpeg_unix.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
@@ -272,10 +270,8 @@ jobs:
 
       - name: Configure & build static FFmpeg
         run: |
-          cd ffmpeg_src
-          ./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-programs --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-small --enable-avcodec --enable-avformat --enable-swresample --enable-swscale --enable-avutil
-          make -j$(sysctl -n hw.ncpu)
-          make install
+          chmod +x scripts/build_ffmpeg_unix.sh || true
+          ./scripts/build_ffmpeg_unix.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
