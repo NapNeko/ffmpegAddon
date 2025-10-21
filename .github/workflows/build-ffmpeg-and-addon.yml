@@ -154,6 +154,9 @@ jobs:
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
           # Ensure mingw64 bin is first in PATH so cmake/gcc from mingw are used
           export PATH="/mingw64/bin:$PATH"
+          # Prefer the mingw-w64 toolchain explicitly by exporting CC/CXX
+          export CC=/mingw64/bin/x86_64-w64-mingw32-gcc
+          export CXX=/mingw64/bin/x86_64-w64-mingw32-g++
           echo "--- Diagnostics before npm ci ---"
           which node || true
           node --version || true
@@ -163,14 +166,16 @@ jobs:
           cmake --version || true
           which pkg-config || true
           pkg-config --version || true
-          npm i
+          npm ci
 
       - name: Configure Node addon (point to built FFmpeg) and build
         shell: msys2 {0}
         run: |
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
-          # cmake-js inside msys2/mingw64 should pick up mingw-w64 toolchain
+          # Ensure mingw64 toolchain is first and force CC/CXX for cmake-js
           export PATH="/mingw64/bin:$PATH"
+          export CC=/mingw64/bin/x86_64-w64-mingw32-gcc
+          export CXX=/mingw64/bin/x86_64-w64-mingw32-g++
           echo "--- Diagnostics before cmake-js configure ---"
           which node || true
           node --version || true
@@ -178,7 +183,8 @@ jobs:
           gcc --version || true
           which cmake || true
           cmake --version || true
-          npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$(cygpath -u "$PREFIX")"
+          # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers
+          npx cmake-js configure -G "MinGW Makefiles" --cc /mingw64/bin/x86_64-w64-mingw32-gcc --cxx /mingw64/bin/x86_64-w64-mingw32-g++ -- -DFFMPEG_SOURCE_DIR="$(cygpath -u "$PREFIX")"
           npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon

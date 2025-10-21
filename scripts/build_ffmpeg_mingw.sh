@@ -16,6 +16,7 @@ CONFIGURE_FLAGS=(
   --arch=x86_64
   --target-os=win64
   --enable-static
+  --disable-programs
   --disable-shared
   --disable-ffplay
   --disable-ffprobe
@@ -23,7 +24,7 @@ CONFIGURE_FLAGS=(
   --disable-debug
   --enable-stripping
   --enable-small
-
+  
   --enable-avcodec
   --enable-avformat
   --enable-swscale
