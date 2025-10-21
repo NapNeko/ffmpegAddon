@@ -33,6 +33,8 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --disable-programs \
   --disable-doc \
   --disable-debug \
+  --disable-x86asm \
+  --disable-inline-asm \
   --disable-ffplay \
   --disable-ffprobe \
   --enable-small \
