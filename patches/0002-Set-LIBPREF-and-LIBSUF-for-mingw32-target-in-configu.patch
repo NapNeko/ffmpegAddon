@@ -1,0 +1,27 @@
+From d40b883fd5d131b838bb9d26e8323794202650d0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Tue, 21 Oct 2025 19:54:01 +0800
+Subject: [PATCH 2/2] Set LIBPREF and LIBSUF for mingw32 target in configure
+
+Adds explicit assignment of LIBPREF and LIBSUF variables for the mingw32 target in the configure script. This ensures correct library naming conventions for Windows builds.
+---
+ configure | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/configure b/configure
+index f08cb9b5b9..17eab51089 100755
+--- a/configure
++++ b/configure
+@@ -5852,6 +5852,8 @@ case $target_os in
+         else
+             SLIB_EXTRA_CMD=-'$(DLLTOOL) -m $(LIBTARGET) -d $$(@:$(SLIBSUF)=.def) -l $(SUBDIR)$(SLIBNAME:$(SLIBSUF)=.lib) -D $(SLIBNAME_WITH_MAJOR)'
+         fi
++        LIBPREF=""
++        LIBSUF=".lib"
+         SLIB_INSTALL_NAME='$(SLIBNAME_WITH_MAJOR)'
+         SLIB_INSTALL_LINKS=
+         SLIB_INSTALL_EXTRA_SHLIB='$(SLIBNAME:$(SLIBSUF)=.lib)'
+-- 
+2.47.0.windows.2
+

@@ -357,6 +357,14 @@ if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE _WIN32 WIN32_LEAN_AND_MEAN)
 endif()
 
+# If cross-compiling to Windows (for example via mingw toolchain with
+# -DCMAKE_SYSTEM_NAME=Windows), ensure the CMake file behaves like WIN32
+# so Windows-specific system libraries and link flags are applied.
+if(NOT WIN32 AND DEFINED CMAKE_SYSTEM_NAME AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Cross-compiling for Windows (CMAKE_SYSTEM_NAME=Windows) — enabling WIN32 compatibility handling")
+    set(WIN32 TRUE)
+endif()
+
 # Link Windows system libraries commonly required for media APIs and
 # Windows-specific runtime dependencies. Previously these were embedded in
 # source files via "#pragma comment(lib, ...)". Prefer managing them here
