@@ -96,7 +96,7 @@ jobs:
         run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Build Node addon (cmake-js)
-        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+        run: npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -177,11 +177,30 @@ jobs:
             echo "No patches found in patches/"
           fi
 
-      - name: Build FFmpeg with MSVC via provided script
-        shell: 'bash --login -eo pipefail {0}'
+      - name: Build FFmpeg with MSVC via provided script (use MSYS2 bash and VS vcvars)
+        shell: cmd
         run: |
-          chmod +x scripts/build_ffmpeg_msvc.sh
-          ./scripts/build_ffmpeg_msvc.sh "$PREFIX"
+          REM locate Visual Studio and call vcvars64 to setup MSVC environment
+          set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+          if exist "%VSWHERE%" (
+            for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_INSTALL=%%I"
+          )
+          if not defined VS_INSTALL (
+            echo vswhere not found or Visual Studio not located. Trying default path.
+            set "VS_INSTALL=%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools"
+          )
+          if exist "%VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat" (
+            call "%VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat"
+          ) else (
+            echo WARNING: vcvars64.bat not found at %VS_INSTALL%\VC\Auxiliary\Build\vcvars64.bat
+          )
+          REM Run the build script using the MSYS2 bash executable installed by msys2/setup-msys2
+          if exist "C:\\msys64\\usr\\bin\\bash.exe" (
+            C:\\msys64\\usr\\bin\\bash.exe -lc "chmod +x scripts/build_ffmpeg_msvc.sh && ./scripts/build_ffmpeg_msvc.sh \"$PREFIX\""
+          ) else (
+            echo ERROR: MSYS2 bash not found at C:\msys64\usr\bin\bash.exe. Ensure msys2/setup-msys2 step ran correctly.
+            exit 1
+          )
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
@@ -201,7 +220,7 @@ jobs:
 
       - name: Build Node addon (cmake-js) on Windows
         shell: 'bash --login -eo pipefail {0}'
-        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+        run: npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -288,7 +307,7 @@ jobs:
         run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Build Node addon (cmake-js)
-        run: npx cmake-js build --arch=x64 --runtime=node -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+        run: npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
