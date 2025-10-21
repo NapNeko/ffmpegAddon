@@ -1,0 +1,22 @@
+{
+  "name": "ffmpegaddon",
+  "version": "1.0.0",
+  "description": "FFmpeg Addon for Node.js",
+  "main": "index.js",
+  "scripts": {
+    "install": "cmake-js build",
+    "configure": "cmake-js configure",
+    "build": "cmake-js rebuild",
+    "test": "node ./test/test.js",
+    "parser": "node ./parsers.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cmake-js": "^7.3.0",
+    "node-addon-api": "^8.0.0"
+  },
+  "devDependencies": {
+    "node-api-headers": "^1.6.0"
+  }
+}

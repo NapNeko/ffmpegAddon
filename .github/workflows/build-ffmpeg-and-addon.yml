@@ -1,0 +1,138 @@
+name: Build FFmpeg and Node Addon
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build on Ubuntu
+    runs-on: ubuntu-latest
+    env:
+      PREFIX: ${{ github.workspace }}/buildout
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3
+
+      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+        run: |
+          rm -rf ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+
+      - name: Apply repository patches to ffmpeg_src (if any)
+        run: |
+          if compgen -G "patches/*.patch" > /dev/null; then
+            echo "Applying patches to ffmpeg_src"
+            cp patches/*.patch ffmpeg_src/ || true
+            cd ffmpeg_src
+            git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
+          else
+            echo "No patches found in patches/"
+          fi
+        shell: bash
+
+      - name: Configure & build static FFmpeg
+        run: |
+          cd ffmpeg_src
+          ./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-programs --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-small --enable-avcodec --enable-avformat --enable-swresample --enable-swscale --enable-avutil
+          make -j$(nproc)
+          make install
+
+      - name: Show installed libs
+        run: ls -la "$PREFIX/lib" || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build Node addon (cmake-js)
+        run: npx cmake-js build --arch=x64 --runtime=node
+
+      - name: Upload built addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-addon-linux
+          path: |
+            build/*
+            Release/*
+            buildout/lib
+
+  build-windows:
+    name: Build on Windows (MSVC)
+    runs-on: windows-2022
+    env:
+      PREFIX: ${{ github.workspace }}\buildout
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSYS2 and required packages
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-yasm
+            mingw-w64-x86_64-nasm
+
+      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+        run: |
+          if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
+          git clone --depth 1 --branch release/7.1 https://git.ffmpeg.org/ffmpeg.git ffmpeg_src
+
+      - name: Apply repository patches to ffmpeg_src (if any) on Windows
+        shell: bash --login -eo pipefail
+        run: |
+          shopt -s nullglob || true
+          if compgen -G "patches/*.patch" > /dev/null; then
+            echo "Applying patches to ffmpeg_src"
+            cp patches/*.patch ffmpeg_src/ || true
+            cd ffmpeg_src
+            git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch || (echo "git am failed" && git am --abort || true; exit 1)
+          else
+            echo "No patches found in patches/"
+          fi
+
+      - name: Build FFmpeg with MSVC via provided script
+        shell: bash --login -eo pipefail
+        run: |
+          chmod +x scripts/build_ffmpeg_msvc.sh
+          ./scripts/build_ffmpeg_msvc.sh "$PREFIX"
+
+      - name: Show installed libs
+        run: ls -la "$PREFIX/lib" || true
+        shell: bash --login -eo pipefail
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build Node addon (cmake-js) on Windows
+        run: npx cmake-js build --arch=x64 --runtime=node
+
+      - name: Upload built addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-addon-windows
+          path: |
+            build\*
+            Release\*
+            buildout\lib

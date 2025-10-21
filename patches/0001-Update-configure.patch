@@ -1,0 +1,26 @@
+From 319b1cf776bd6bdc854e03231860479f8f1dbb41 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Tue, 21 Oct 2025 18:11:21 +0800
+Subject: [PATCH] Update configure
+
+---
+ configure | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/configure b/configure
+index 98b582a5d5..f08cb9b5b9 100755
+--- a/configure
++++ b/configure
+@@ -5891,6 +5891,8 @@ case $target_os in
+         enabled x86_32 && check_ldflags -LARGEADDRESSAWARE
+         add_cppflags -DWIN32_LEAN_AND_MEAN
+         shlibdir_default="$bindir_default"
++        LIBPREF=""
++        LIBSUF=".lib"
+         SLIBPREF=""
+         SLIBSUF=".dll"
+         SLIBNAME_WITH_VERSION='$(SLIBPREF)$(FULLNAME)-$(LIBVERSION)$(SLIBSUF)'
+-- 
+2.47.0.windows.2
+

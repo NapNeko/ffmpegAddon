@@ -1,0 +1,7 @@
+out/
+build/
+node_modules/
+.frida-devkit/
+.frida-devkit.tar.xz
+ffmpeg_src/
+buildout/
