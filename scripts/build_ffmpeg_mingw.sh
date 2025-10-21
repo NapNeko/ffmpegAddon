@@ -13,7 +13,6 @@ echo "Install prefix: $PREFIX"
 
 CONFIGURE_FLAGS=(
   --prefix="$PREFIX"
-  --toolchain=mingw64
   --arch=x86_64
   --target-os=win64
   --enable-static

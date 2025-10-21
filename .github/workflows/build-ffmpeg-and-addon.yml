@@ -108,7 +108,7 @@ jobs:
             buildout/lib
 
   build-windows:
-    name: Build on Windows (MSVC)
+    name: Build on Windows
     runs-on: windows-2022
     env:
       PREFIX: ${{ github.workspace }}\buildout
