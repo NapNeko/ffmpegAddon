@@ -183,8 +183,13 @@ jobs:
           gcc --version || true
           which cmake || true
           cmake --version || true
-          # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers
-          npx cmake-js configure -G "MinGW Makefiles" --cc /mingw64/bin/gcc --cxx /mingw64/bin/g++ -- -DFFMPEG_SOURCE_DIR="$(cygpath -u "$PREFIX")"
+          # Convert mingw compiler paths and PREFIX to Windows-style full paths so CMake sees real .exe files
+          WIN_CC="$(cygpath -w /mingw64/bin/gcc).exe"
+          WIN_CXX="$(cygpath -w /mingw64/bin/g++).exe"
+          WIN_PREFIX="$(cygpath -w "$PREFIX")"
+          echo "Using CC=$WIN_CC CXX=$WIN_CXX FFMPEG_SOURCE_DIR=$WIN_PREFIX"
+          # Use MinGW Makefiles generator and explicitly point cmake-js at mingw compilers (pass full Windows paths)
+          npx cmake-js configure -G "MinGW Makefiles" --cc "$WIN_CC" --cxx "$WIN_CXX" -- -DFFMPEG_SOURCE_DIR="$WIN_PREFIX"
           npx cmake-js build --arch=x64 --runtime=node
 
       - name: Upload built addon
