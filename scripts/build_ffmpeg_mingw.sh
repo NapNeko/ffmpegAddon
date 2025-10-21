@@ -21,6 +21,7 @@ CONFIGURE_FLAGS=(
   --disable-ffprobe \
   --disable-doc \
   --disable-iconv \
+  --disable-bzlib \
   --disable-libilbc \
   --disable-lzma \
   --disable-debug \
