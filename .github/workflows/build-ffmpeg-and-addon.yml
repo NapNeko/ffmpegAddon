@@ -130,6 +130,8 @@ jobs:
             mingw-w64-x86_64-nasm
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-xz
             mingw-w64-x86_64-nodejs
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src

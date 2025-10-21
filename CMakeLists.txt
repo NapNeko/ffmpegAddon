@@ -253,7 +253,7 @@ if(AVFORMAT_INCLUDE_DIR)
             # Link only platform-appropriate system libraries.
             if(WIN32)
                 # Common Windows system libraries that FFmpeg objects may depend on.
-                set(_ffmpeg_sys_libs ws2_32 winmm shlwapi advapi32 bcrypt ncrypt crypt32 ole32 bz2)
+                set(_ffmpeg_sys_libs ws2_32 winmm shlwapi advapi32 bcrypt ncrypt crypt32 secur32 ole32 bz2 libiconv lzma)
                 message(STATUS "Also linking Windows system libraries: ${_ffmpeg_sys_libs}")
                 target_link_libraries(${PROJECT_NAME} PRIVATE ${_ffmpeg_sys_libs})
             else()
