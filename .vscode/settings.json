@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "iostream": "cpp",
-        "w64.h": "c"
+        "w64.h": "c",
+        "silk_adapter.h": "c",
+        "ios": "c"
     }
 }
