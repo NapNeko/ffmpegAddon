@@ -9,18 +9,11 @@ fi
 
 echo "Install prefix: $PREFIX"
 
-if [ ! -d ffmpeg_src ]; then
-  echo "ffmpeg_src directory not found; please clone FFmpeg into ffmpeg_src" >&2
-  exit 3
-fi
-
 cd ffmpeg_src
 
 EXTRA_CFLAGS="-fPIC -DPIC"
 EXTRA_CXXFLAGS="-fPIC -DPIC"
 EXTRA_LDFLAGS="-fPIC"
-
-echo "Configuring FFmpeg with position-independent code (PIC) enabled"
 
 ./configure \
   --prefix="$PREFIX" \
