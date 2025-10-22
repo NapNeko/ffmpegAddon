@@ -69,6 +69,8 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=mjpeg \
   --enable-decoder=vp8 \
   --enable-decoder=vp9 \
+  --enable-decoder=silk \
+  --enable-encoder=silk \
   --enable-parser=h264 \
   --enable-parser=hevc \
   --enable-parser=aac \
