@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(BUILD_FFMPEG_FROM_SOURCE "Run an external build of FFmpeg from source (requires MSYS2 / bash on Windows)" OFF)
 set(FFMPEG_SOURCE_DIR "" CACHE PATH "Path to local FFmpeg source or built include/lib folder")
 
-# If the user didn't pass a FFMPEG_SOURCE_DIR but a local buildout exists in the project,
+# If the user didn't pass a FFMPEG_SOURCE_DIR but a local ffmpeg_out exists in the project,
 # prefer that as a sensible default so both MSVC and MinGW builds find the trimmed FFmpeg.
 if(NOT FFMPEG_SOURCE_DIR OR FFMPEG_SOURCE_DIR STREQUAL "")
-    if(EXISTS "${CMAKE_SOURCE_DIR}/buildout")
-        set(FFMPEG_SOURCE_DIR "${CMAKE_SOURCE_DIR}/buildout" CACHE PATH "Path to local FFmpeg source or built include/lib folder" FORCE)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/ffmpeg_out")
+        set(FFMPEG_SOURCE_DIR "${CMAKE_SOURCE_DIR}/ffmpeg_out" CACHE PATH "Path to local FFmpeg source or built include/lib folder" FORCE)
         message(STATUS "Auto-detected local ffmpeg install: ${FFMPEG_SOURCE_DIR}")
     endif()
 endif()
@@ -71,7 +71,7 @@ endif()
 set(_ffmpeg_include_candidates
     "${FFMPEG_SOURCE_DIR}/include"
     "${FFMPEG_SOURCE_DIR}/include/libavformat"
-    "${CMAKE_SOURCE_DIR}/buildout/include"
+    "${CMAKE_SOURCE_DIR}/ffmpeg_out/include"
     "C:/ffmpeg/include"
     "/usr/include"
     "/usr/local/include"
@@ -106,7 +106,7 @@ if(AVFORMAT_INCLUDE_DIR)
     set(_ffmpeg_lib_candidates
         "${FFMPEG_SOURCE_DIR}/lib"
         "${FFMPEG_SOURCE_DIR}/lib64"
-        "${CMAKE_SOURCE_DIR}/buildout/lib"
+        "${CMAKE_SOURCE_DIR}/ffmpeg_out/lib"
         "C:/ffmpeg/lib"
         "/usr/lib"
         "/usr/local/lib"
@@ -180,7 +180,7 @@ if(AVFORMAT_INCLUDE_DIR)
         # If the found libraries are MinGW-style (.a) but we're building with MSVC, linking will fail.
         get_filename_component(_avf_ext ${AVFORMAT_LIB} EXT)
         if(MSVC AND _avf_ext STREQUAL "a")
-            message(FATAL_ERROR "Found FFmpeg libraries in .a format (MinGW). MSVC cannot link .a archives.\nEither: (A) build the addon using MinGW (recommended when buildout was built with MSYS2/Mingw), or (B) provide MSVC-compatible FFmpeg dev libs (.lib).\nSet -DFFMPEG_SOURCE_DIR to a folder containing MSVC .lib files, or run the build in a MinGW environment using cmake-js in MSYS2/ MINGW64.")
+            message(FATAL_ERROR "Found FFmpeg libraries in .a format (MinGW). MSVC cannot link .a archives.\nEither: (A) build the addon using MinGW (recommended when ffmpeg_out was built with MSYS2/Mingw), or (B) provide MSVC-compatible FFmpeg dev libs (.lib).\nSet -DFFMPEG_SOURCE_DIR to a folder containing MSVC .lib files, or run the build in a MinGW environment using cmake-js in MSYS2/ MINGW64.")
         endif()
         # Link FFmpeg libraries. When using MSVC we keep the normal linking
         # behavior (MSVC cannot link .a archives and we already error out earlier

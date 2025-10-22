@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PREFIX="$(pwd)/buildout-w64"
-if [ "$#" -ge 1 ]; then
-  PREFIX="$1"
+PREFIX=${1:-}
+if [ -z "$PREFIX" ]; then
+  echo "Usage: $0 <install-prefix>" >&2
+  exit 2
 fi
 
 echo "Install prefix: $PREFIX"

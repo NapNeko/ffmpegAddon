@@ -12,7 +12,7 @@ jobs:
     name: Build on Ubuntu
     runs-on: ubuntu-latest
     env:
-      PREFIX: ${{ github.workspace }}/buildout
+      PREFIX: ${{ github.workspace }}/ffmpeg_out
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,53 +27,11 @@ jobs:
           rm -rf ffmpeg_src
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
-      - name: Apply repository patches to ffmpeg_src (if any)
+      - name: Apply repository patches to ffmpeg_src
         run: |
           set -euo pipefail
-          if compgen -G "patches/*.patch" > /dev/null; then
-            echo "Applying patches to ffmpeg_src"
-            mkdir -p ffmpeg_src
-            cp -v patches/*.patch ffmpeg_src/ || true
-            cd ffmpeg_src
-            git config user.email "action@users.noreply.github.com"
-            git config user.name "GitHub Actions"
-            # try git am first
-            if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
-              echo "git am succeeded"
-            else
-              echo "git am failed; showing current patch and trying fallback"
-              git am --show-current-patch=diff || true
-              git status --porcelain --untracked-files=all || true
-              # fallback: try applying patches with dos2unix then git apply
-              if command -v dos2unix >/dev/null 2>&1; then
-                dos2unix *.patch || true
-              else
-                sed -i 's/\r$//' *.patch || true
-              fi
-              # attempt git am again
-              if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
-                echo "git am succeeded after normalizing line endings"
-              else
-                echo "git am still failed; trying git apply --reject --whitespace=fix"
-                if git apply --reject --whitespace=fix *.patch; then
-                  echo "git apply succeeded"
-                  # commit the results
-                  git add -A
-                  git commit -m "Apply patches (git apply fallback)" || true
-                else
-                  echo "git apply failed; dumping diagnostic info"
-                  git am --abort || true
-                  echo "--- failed patch diff ---"
-                  git diff --no-prefix || true
-                  echo "--- ls -la ---"
-                  ls -la
-                  exit 1
-                fi
-              fi
-            fi
-          else
-            echo "No patches found in patches/"
-          fi
+          echo "Applying patches to ffmpeg_src"
+          cd ffmpeg_src && git apply --whitespace=fix ../patches/*.patch
         shell: bash
 
       - name: Configure & build static FFmpeg
@@ -110,14 +68,14 @@ jobs:
         with:
           name: ffmpeg-libs-linux
           path: |
-            buildout/include
-            buildout/lib
+            ffmpeg_out/include
+            ffmpeg_out/lib
 
   build-windows:
     name: Build on Windows
     runs-on: windows-2022
     env:
-      PREFIX: ${{ github.workspace }}\buildout
+      PREFIX: ${{ github.workspace }}/ffmpeg_out
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -144,6 +102,15 @@ jobs:
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
+      - name: Apply repository patches to ffmpeg_src (Windows/msys2)
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          echo "Applying patches to ffmpeg_src"
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --whitespace=fix ../patches/*.patch
+
       - name: Build FFmpeg
         env:
           MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
@@ -151,12 +118,9 @@ jobs:
         run: |
           cd "$(cygpath -u "$GITHUB_WORKSPACE")"
           echo "Using MSYS2 at: $MSYS2_LOCATION"
-
-          # 🔧 关键修复: 确保使用 gawk, 禁止路径自动转换
           export MSYS2_ARG_CONV_EXCL="*"
           pacman -S --noconfirm gawk make diffutils
           export AWK=gawk
-
           chmod +x ./scripts/build_ffmpeg_win.sh || true
           ./scripts/build_ffmpeg_win.sh "$(cygpath -u "$PREFIX")"
 
@@ -188,20 +152,20 @@ jobs:
           path: |
             build\**\*.node
             Release\**\*.node
-            buildout\lib\**\*.node
+            ffmpeg_out\lib\**\*.node
       - name: Upload FFmpeg headers and libs
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-windows
           path: |
-            buildout\include
-            buildout\lib
+            ffmpeg_out\include
+            ffmpeg_out\lib
 
   build-macos:
     name: Build on macOS
     runs-on: macos-latest
     env:
-      PREFIX: ${{ github.workspace }}/buildout
+      PREFIX: ${{ github.workspace }}/ffmpeg_out
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -216,43 +180,11 @@ jobs:
           rm -rf ffmpeg_src
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
-      - name: Apply repository patches to ffmpeg_src (if any) on macOS
+      - name: Apply repository patches to ffmpeg_src on macOS
         run: |
           set -euo pipefail
-          if compgen -G "patches/*.patch" > /dev/null; then
-            echo "Applying patches to ffmpeg_src"
-            mkdir -p ffmpeg_src
-            cp -v patches/*.patch ffmpeg_src/ || true
-            cd ffmpeg_src
-            git config user.email "action@users.noreply.github.com"
-            git config user.name "GitHub Actions"
-            if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
-              echo "git am succeeded"
-            else
-              echo "git am failed; showing current patch and trying fallback"
-              git am --show-current-patch=diff || true
-              git status --porcelain --untracked-files=all || true
-              sed -i '' -e $'s/\r$//' *.patch || true
-              if git am --3way --committer-date-is-author-date --signoff --keep-cr *.patch; then
-                echo "git am succeeded after normalizing line endings"
-              else
-                echo "git am still failed; trying git apply --reject --whitespace=fix"
-                if git apply --reject --whitespace=fix *.patch; then
-                  echo "git apply succeeded"
-                  git add -A
-                  git commit -m "Apply patches (git apply fallback)" || true
-                else
-                  echo "git apply failed; dumping diagnostic info"
-                  git am --abort || true
-                  git diff --no-prefix || true
-                  ls -la || true
-                  exit 1
-                fi
-              fi
-            fi
-          else
-            echo "No patches found in patches/"
-          fi
+          echo "Applying patches to ffmpeg_src"
+          cd ffmpeg_src && git apply --whitespace=fix ../patches/*.patch
 
       - name: Configure & build static FFmpeg
         run: |
@@ -288,5 +220,5 @@ jobs:
         with:
           name: ffmpeg-libs-macos
           path: |
-            buildout/include
-            buildout/lib
+            ffmpeg_out/include
+            ffmpeg_out/lib
