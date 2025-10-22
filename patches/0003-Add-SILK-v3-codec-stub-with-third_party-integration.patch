@@ -1,7 +1,7 @@
-From 86d2f58bedccce24793d1778b0a1f143c0ef40f3 Mon Sep 17 00:00:00 2001
+From 2ca7a5afd0c9236b107b26002a733c7f9e8fb471 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
-Date: Wed, 22 Oct 2025 23:15:38 +0800
+Date: Wed, 22 Oct 2025 23:20:34 +0800
 Subject: [PATCH 3/3] Add SILK v3 codec stub with third_party integration
 
 Introduces a stub implementation for the SILK v3 audio codec, including encoder and decoder registration, a minimal adapter layer (silk_adapter.[ch]) to interface with the third_party SILK v3 decoder, and build system integration. Updates configure and Makefile to support the new codec and its dependencies, and adds necessary includes and object files for compilation. This lays the groundwork for full SILK v3 support in FFmpeg using bundled third_party sources.
@@ -334,14 +334,14 @@ Introduces a stub implementation for the SILK v3 audio codec, including encoder 
  create mode 100644 libavcodec/silk_v3_decoder/src/SKP_Silk_warped_autocorrelation_FIX_arm.S
 
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 153a9e3881..b556bb2700 100644
+index 153a9e3881..eb8990c3ae 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
 @@ -26,6 +26,9 @@ HEADERS = ac3_parser.h                                                  \
            videotoolbox.h                                                \
            vorbis_parser.h                                               \
  
-+/* Include SILK v3 headers placed under libavcodec for easier packaging */
++# Include SILK v3 headers placed under libavcodec for easier packaging
 +CFLAGS += -I$(SRC_PATH)/libavcodec/silk_v3_decoder/interface
 +
  OBJS = ac3_parser.o                                                     \
