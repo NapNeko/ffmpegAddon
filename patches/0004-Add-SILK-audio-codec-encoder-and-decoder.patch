@@ -1,0 +1,311 @@
+From 143fe978bc13212e5b8f3acb5587590cedf1589c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Wed, 22 Oct 2025 23:53:29 +0800
+Subject: [PATCH 4/4] Add SILK audio codec encoder and decoder
+
+Introduces support for the SILK audio codec by adding encoder and decoder implementations (silkenc.c/h, silkdec.c/h), updating the build system and codec registration, and defining the AV_CODEC_ID_SILK. This enables encoding and decoding of SILK audio streams within FFmpeg.
+---
+ configure              | 16 +++++++++
+ libavcodec/Makefile    |  2 ++
+ libavcodec/allcodecs.c |  2 ++
+ libavcodec/codec_id.h  |  3 ++
+ libavcodec/silkdec.c   | 75 ++++++++++++++++++++++++++++++++++++++++++
+ libavcodec/silkdec.h   |  9 +++++
+ libavcodec/silkenc.c   | 74 +++++++++++++++++++++++++++++++++++++++++
+ libavcodec/silkenc.h   |  9 +++++
+ 8 files changed, 190 insertions(+)
+ create mode 100644 libavcodec/silkdec.c
+ create mode 100644 libavcodec/silkdec.h
+ create mode 100644 libavcodec/silkenc.c
+ create mode 100644 libavcodec/silkenc.h
+
+diff --git a/configure b/configure
+index 17eab51089..4a94d8a795 100755
+--- a/configure
++++ b/configure
+@@ -4029,6 +4029,7 @@ qsv_transcode_example_deps="avcodec avformat avutil h264_qsv_encoder"
+ cpu_init_extralibs="pthreads_extralibs"
+ cws2fws_extralibs="zlib_extralibs"
+ 
++
+ # libraries, in any order
+ avcodec_deps="avutil"
+ avcodec_suggest="libm stdatomic liblcevc_dec"
+@@ -4046,6 +4047,10 @@ swresample_suggest="libm libsoxr stdatomic"
+ swscale_deps="avutil"
+ swscale_suggest="libm stdatomic"
+ 
++# Silk codec option
++silk_deps="avcodec"
++
++
+ avcodec_extralibs="pthreads_extralibs iconv_extralibs dxva2_extralibs lcms2_extralibs"
+ avfilter_extralibs="pthreads_extralibs"
+ avutil_extralibs="d3d11va_extralibs d3d12va_extralibs mediacodec_extralibs nanosleep_extralibs pthreads_extralibs vaapi_drm_extralibs vaapi_x11_extralibs vaapi_win32_extralibs vdpau_x11_extralibs"
+@@ -4122,6 +4127,7 @@ fi
+ cpu="generic"
+ intrinsics="none"
+ 
++
+ # configurable options
+ enable $PROGRAM_LIST
+ enable $DOCUMENT_LIST
+@@ -4130,6 +4136,10 @@ enable $LIBRARY_LIST
+ enable stripping
+ enable version_tracking
+ 
++# Add silk to component list
++COMPONENT_LIST="$COMPONENT_LIST silk"
++
++
+ enable asm
+ enable debug
+ enable doc
+@@ -4351,6 +4361,12 @@ do_random(){
+ for opt do
+     optval="${opt#*=}"
+     case "$opt" in
++        --enable-silk)
++            enable silk
++        ;;
++        --disable-silk)
++            disable silk
++        ;;
+         --extra-ldflags=*)
+             add_ldflags $optval
+         ;;
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index eb8990c3ae..16c03f4bb8 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -184,6 +184,8 @@ OBJS-$(CONFIG_WMA_FREQS)               += wma_freqs.o
+ OBJS-$(CONFIG_WMV2DSP)                 += wmv2dsp.o
+ 
+ # decoders/encoders
++OBJS-$(CONFIG_SILK_DECODER)              += silkdec.o
++OBJS-$(CONFIG_SILK_ENCODER)              += silkenc.o
+ OBJS-$(CONFIG_ZERO12V_DECODER)         += 012v.o
+ OBJS-$(CONFIG_A64MULTI_ENCODER)        += a64multienc.o elbg.o
+ OBJS-$(CONFIG_A64MULTI5_ENCODER)       += a64multienc.o elbg.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index aa0fc47647..474390c537 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -418,6 +418,8 @@ extern const FFCodec ff_zmbv_encoder;
+ extern const FFCodec ff_zmbv_decoder;
+ 
+ /* audio codecs */
++extern const FFCodec ff_silk_encoder;
++extern const FFCodec ff_silk_decoder;
+ extern const FFCodec ff_aac_encoder;
+ extern const FFCodec ff_aac_decoder;
+ extern const FFCodec ff_aac_fixed_decoder;
+diff --git a/libavcodec/codec_id.h b/libavcodec/codec_id.h
+index 0a8d3bed1e..fcb02f8dc9 100644
+--- a/libavcodec/codec_id.h
++++ b/libavcodec/codec_id.h
+@@ -545,6 +545,9 @@ enum AVCodecID {
+     AV_CODEC_ID_QOA,
+     AV_CODEC_ID_LC3,
+ 
++    /* Silk codec */
++    AV_CODEC_ID_SILK,
++
+     /* subtitle codecs */
+     AV_CODEC_ID_FIRST_SUBTITLE = 0x17000,          ///< A dummy ID pointing at the start of subtitle codecs.
+     AV_CODEC_ID_DVD_SUBTITLE = 0x17000,
+diff --git a/libavcodec/silkdec.c b/libavcodec/silkdec.c
+new file mode 100644
+index 0000000000..18b8fccb4d
+--- /dev/null
++++ b/libavcodec/silkdec.c
+@@ -0,0 +1,75 @@
++// FFmpeg Silk Decoder Wrapper
++#include "silkdec.h"
++#include "libavcodec/avcodec.h"
++#include "libavutil/common.h"
++#include "libavutil/mem.h"
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++
++
++typedef struct SilkDecContext {
++    AVClass *class;
++    uint8_t *buffer;
++    int buffer_size;
++} SilkDecContext;
++
++static void silk_ffmpeg_callback(void* userdata, const uint8_t* data, int size) {
++    AVFrame *frame = (AVFrame*)userdata;
++    int old_size = frame->nb_samples * av_get_bytes_per_sample(frame->format) * frame->channels;
++    int new_samples = size / (frame->channels * av_get_bytes_per_sample(frame->format));
++    av_samples_alloc(frame->data, frame->linesize, frame->channels, frame->nb_samples + new_samples, frame->format, 1);
++    memcpy(frame->data[0] + old_size, data, size);
++    frame->nb_samples += new_samples;
++}
++
++static av_cold int silk_decode_init(AVCodecContext *avctx) {
++    SilkDecContext *s = avctx->priv_data;
++    s->buffer = NULL;
++    s->buffer_size = 0;
++    return 0;
++}
++
++static int silk_decode_frame(AVCodecContext *avctx, AVFrame *frame,
++                            int *got_frame_ptr, AVPacket *pkt) {
++    SilkDecContext *s = avctx->priv_data;
++    frame->nb_samples = 0;
++    frame->channels = avctx->channels;
++    frame->format = avctx->sample_fmt;
++    silk_decode(pkt->data, pkt->size, silk_ffmpeg_callback, frame);
++    *got_frame_ptr = 1;
++    return pkt->size;
++}
++
++static av_cold int silk_decode_close(AVCodecContext *avctx) {
++    SilkDecContext *s = avctx->priv_data;
++    av_freep(&s->buffer);
++    return 0;
++}
++
++#define OFFSET(x) offsetof(SilkDecContext, x)
++#define AD AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_DECODING_PARAM
++static const AVOption silkdec_options[] = {
++    {NULL}
++};
++
++static const AVClass silkdec_class = {
++    .class_name = "silk decoder",
++    .item_name  = av_default_item_name,
++    .option     = silkdec_options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
++const FFCodec ff_silk_decoder = {
++    .p.name           = "silk",
++    .p.long_name      = NULL_IF_CONFIG_SMALL("SILK audio decoder"),
++    .p.type           = AVMEDIA_TYPE_AUDIO,
++    .p.id             = AV_CODEC_ID_SILK,
++    .p.capabilities   = AV_CODEC_CAP_DR1,
++    .priv_data_size   = sizeof(SilkDecContext),
++    .init             = silk_decode_init,
++    .decode           = silk_decode_frame,
++    .close            = silk_decode_close,
++    .p.sample_fmts    = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_NONE },
++    .p.priv_class     = &silkdec_class,
++};
+diff --git a/libavcodec/silkdec.h b/libavcodec/silkdec.h
+new file mode 100644
+index 0000000000..28363e2301
+--- /dev/null
++++ b/libavcodec/silkdec.h
+@@ -0,0 +1,9 @@
++#ifndef FFMPEG_SILKDEC_H
++#define FFMPEG_SILKDEC_H
++
++#include "libavcodec/avcodec.h"
++#include "codec_internal.h"
++
++extern const FFCodec ff_silk_decoder;
++
++#endif // FFMPEG_SILKDEC_H
+diff --git a/libavcodec/silkenc.c b/libavcodec/silkenc.c
+new file mode 100644
+index 0000000000..7b3432563f
+--- /dev/null
++++ b/libavcodec/silkenc.c
+@@ -0,0 +1,74 @@
++// FFmpeg Silk Encoder Wrapper
++#include "silkenc.h"
++#include "libavcodec/avcodec.h"
++#include "libavutil/channel_layout.h"
++#include "libavutil/common.h"
++#include "libavutil/mem.h"
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++
++
++typedef struct SilkEncContext {
++    AVClass *class;
++    uint8_t *buffer;
++    int buffer_size;
++} SilkEncContext;
++
++static void silk_ffmpeg_callback(void* userdata, const uint8_t* data, int size) {
++    AVPacket *pkt = (AVPacket*)userdata;
++    av_grow_packet(pkt, size);
++    memcpy(pkt->data + pkt->size - size, data, size);
++}
++
++static av_cold int silk_encode_init(AVCodecContext *avctx) {
++    SilkEncContext *s = avctx->priv_data;
++    s->buffer = NULL;
++    s->buffer_size = 0;
++    return 0;
++}
++
++static int silk_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
++                            const AVFrame *frame, int *got_packet_ptr) {
++    SilkEncContext *s = avctx->priv_data;
++    int ret;
++    int input_size = frame->nb_samples * av_get_bytes_per_sample(avctx->sample_fmt) * avctx->channels;
++    uint8_t *input = (uint8_t*)frame->data[0];
++    av_new_packet(pkt, 0); // Start with empty packet
++    silk_encode(input, input_size, silk_ffmpeg_callback, pkt);
++    *got_packet_ptr = 1;
++    return 0;
++}
++
++static av_cold int silk_encode_close(AVCodecContext *avctx) {
++    SilkEncContext *s = avctx->priv_data;
++    av_freep(&s->buffer);
++    return 0;
++}
++
++#define OFFSET(x) offsetof(SilkEncContext, x)
++#define AE AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
++static const AVOption silkenc_options[] = {
++    {NULL}
++};
++
++static const AVClass silkenc_class = {
++    .class_name = "silk encoder",
++    .item_name  = av_default_item_name,
++    .option     = silkenc_options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
++const FFCodec ff_silk_encoder = {
++    .p.name           = "silk",
++    .p.long_name      = NULL_IF_CONFIG_SMALL("SILK audio encoder"),
++    .p.type           = AVMEDIA_TYPE_AUDIO,
++    .p.id             = AV_CODEC_ID_SILK,
++    .p.capabilities   = AV_CODEC_CAP_DR1,
++    .priv_data_size   = sizeof(SilkEncContext),
++    .init             = silk_encode_init,
++    .encode2          = silk_encode_frame,
++    .close            = silk_encode_close,
++    .p.sample_fmts    = (const enum AVSampleFormat[]){ AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_NONE },
++    .p.priv_class     = &silkenc_class,
++};
+diff --git a/libavcodec/silkenc.h b/libavcodec/silkenc.h
+new file mode 100644
+index 0000000000..5087440deb
+--- /dev/null
++++ b/libavcodec/silkenc.h
+@@ -0,0 +1,9 @@
++#ifndef FFMPEG_SILKENC_H
++#define FFMPEG_SILKENC_H
++
++#include "libavcodec/avcodec.h"
++#include "codec_internal.h"
++
++extern const FFCodec ff_silk_encoder;
++
++#endif // FFMPEG_SILKENC_H
+-- 
+2.47.0.windows.2
+
