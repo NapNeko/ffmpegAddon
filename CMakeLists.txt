@@ -16,6 +16,21 @@ include_directories(${FFMPEG_INCLUDE_DIR})
 link_directories(${FFMPEG_LIB_DIR})
 message(STATUS "Using FFmpeg from: ${FFMPEG_OUT_DIR}")
 
+# Napi自动检测
+execute_process(
+        COMMAND node -p "require('node-addon-api').include"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE NODE_ADDON_API_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+string(REGEX REPLACE "^\"(.*)\"$" "\\1" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
+if(EXISTS "${NODE_ADDON_API_DIR}/napi.h")
+    message(STATUS "Found node-addon-api include dir: ${NODE_ADDON_API_DIR}")
+    include_directories(${NODE_ADDON_API_DIR})
+else()
+    message(FATAL_ERROR "Cannot find napi.h — please run: npm install node-addon-api")
+endif()
+
 # 源文件与 Node Addon 定义
 file(GLOB SRC "src/*.cpp" "src/*.h")
 add_library(${PROJECT_NAME} SHARED ${SRC} ${CMAKE_JS_SRC})
