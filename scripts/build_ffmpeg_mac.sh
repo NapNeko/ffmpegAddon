@@ -7,7 +7,7 @@ if [ -z "$PREFIX" ]; then
   exit 2
 fi
 
-echo "Building FFmpeg into prefix: $PREFIX"
+echo "Install prefix: $PREFIX"
 
 if [ ! -d ffmpeg_src ]; then
   echo "ffmpeg_src directory not found; please clone FFmpeg into ffmpeg_src" >&2
@@ -16,10 +16,6 @@ fi
 
 cd ffmpeg_src
 
-# 清理旧构建（确保不混入非 -fPIC 的对象）
-make distclean || true
-
-# 设置额外编译标志，强制启用位置无关代码
 EXTRA_CFLAGS="-fPIC -DPIC"
 EXTRA_CXXFLAGS="-fPIC -DPIC"
 EXTRA_LDFLAGS="-fPIC"
@@ -85,7 +81,6 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --extra-ldflags="$EXTRA_LDFLAGS" \
   --enable-pic
 
-# 自动检测 CPU 核心数
 if command -v nproc >/dev/null 2>&1; then
   JOBS=$(nproc)
 elif [[ "$(uname)" == "Darwin" ]]; then
@@ -97,7 +92,3 @@ fi
 echo "Running make -j${JOBS}"
 make -j${JOBS}
 make install
-
-echo
-echo "✅ FFmpeg successfully built and installed to: $PREFIX"
-echo "   All static libs compiled with -fPIC, safe for shared linking."
