@@ -6,10 +6,7 @@
   "scripts": {
     "configure": "cmake-js configure",
     "build": "cmake-js rebuild",
-    "build:cross": "./scripts/build_ffmpeg_mingw.sh ./buildout-w64",
-    "configure:cross": "echo 'Use scripts/build_ffmpeg_mingw.sh to build FFmpeg and then run cmake with CC/CXX set to x86_64-w64-mingw32-*'",
-    "test": "node ./test/test.js",
-    "parser": "node ./parsers.js"
+    "test": "node ./test/test.js"
   },
   "author": "",
   "license": "MIT",

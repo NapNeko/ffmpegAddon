@@ -31,6 +31,7 @@ EXTRA_LDFLAGS="-fPIC"
   --enable-stripping \
   --disable-avdevice \
   --disable-network \
+  --disable-avfilter \
   --enable-protocol=file \
   --enable-avformat \
   --enable-avcodec \

@@ -5,3 +5,4 @@ node_modules/
 .frida-devkit.tar.xz
 ffmpeg_src/
 buildout/
+ffmpeg_out/

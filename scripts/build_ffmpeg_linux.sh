@@ -38,6 +38,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-stripping \
   --disable-avdevice \
   --disable-network \
+  --disable-avfilter \
   --enable-protocol=file \
   --enable-avformat \
   --enable-avcodec \
