@@ -2,7 +2,7 @@ From 319b1cf776bd6bdc854e03231860479f8f1dbb41 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Tue, 21 Oct 2025 18:11:21 +0800
-Subject: [PATCH 1/6] Update configure
+Subject: [PATCH 1/7] Update configure
 
 ---
  configure | 2 ++
