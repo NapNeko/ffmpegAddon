@@ -2,7 +2,7 @@ From 5834e5a12378648602d2f41a155e6b1ba83bdde9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 00:12:09 +0800
-Subject: [PATCH 05/10] Refactor and enhance SILK codec integration
+Subject: [PATCH 05/11] Refactor and enhance SILK codec integration
 
 Refactors both the SILK decoder and encoder wrappers to directly integrate the SILK SDK logic, update API usage, and improve buffer management. Updates include new internal decode/encode functions, revised callback handling, and modernized AVCodecContext field usage. Also updates codec registration structures and sample format declarations for better compatibility with FFmpeg's current API.
 ---
