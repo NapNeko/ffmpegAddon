@@ -48,7 +48,6 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-filter=scale \
   --enable-filter=aresample \
   --enable-demuxer=mov \
-
   --enable-demuxer=matroska \
   --enable-demuxer=avi \
   --enable-demuxer=flv \
