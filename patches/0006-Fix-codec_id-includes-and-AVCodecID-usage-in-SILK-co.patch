@@ -2,7 +2,7 @@ From a40c8a31290ea6ce0ce15f301e1f5652cc4f29ef Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 08:07:01 +0800
-Subject: [PATCH 6/7] Fix codec_id includes and AVCodecID usage in SILK codec
+Subject: [PATCH 6/8] Fix codec_id includes and AVCodecID usage in SILK codec
 
 Replaces incorrect and duplicate codec_id includes with the correct header in silkdec.c and silkenc.c. Also updates usage of AVCodecID.AV_CODEC_ID_SILK to AV_CODEC_ID_SILK for consistency and correctness.
 ---
