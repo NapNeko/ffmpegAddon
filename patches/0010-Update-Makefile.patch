@@ -2,7 +2,7 @@ From a131da25b3243ad9ef8b4b1618789f07750e3fd1 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 09:13:47 +0800
-Subject: [PATCH 10/11] Update Makefile
+Subject: [PATCH 10/12] Update Makefile
 
 ---
  libavcodec/Makefile | 3 ++-

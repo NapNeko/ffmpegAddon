@@ -2,7 +2,7 @@ From d778b8b74c0b13980efdd67159008466b5477a0e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 08:20:06 +0800
-Subject: [PATCH 07/11] Fix variable redefinitions and function signature in
+Subject: [PATCH 07/12] Fix variable redefinitions and function signature in
  silkdec.c
 
 Removed redundant variable redefinitions and updated the silk_decode function signature to use AVFrame *frame instead of void *data. Also added a missing AV_CODEC_ID_SILK definition guard to improve compatibility.
