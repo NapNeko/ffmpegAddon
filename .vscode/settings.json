@@ -5,6 +5,7 @@
         "silk_adapter.h": "c",
         "ios": "c",
         "skp_silk_sdk_api.h": "c",
-        "skp_silk_typedef.h": "c"
+        "skp_silk_typedef.h": "c",
+        "channel_layout.h": "c"
     }
 }
