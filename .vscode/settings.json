@@ -7,6 +7,10 @@
         "skp_silk_sdk_api.h": "c",
         "skp_silk_typedef.h": "c",
         "channel_layout.h": "c",
-        "demux.h": "c"
+        "demux.h": "c",
+        "internal.h": "c",
+        "codec_id.h": "c",
+        "intreadwrite.h": "c",
+        "rawenc.h": "c"
     }
 }
