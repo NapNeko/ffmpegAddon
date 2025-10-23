@@ -48,7 +48,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-filter=scale \
   --enable-filter=aresample \
   --enable-demuxer=mov \
-  --enable-demuxer=mp4 \
+
   --enable-demuxer=matroska \
   --enable-demuxer=avi \
   --enable-demuxer=flv \
@@ -59,6 +59,8 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-demuxer=flac \
   --enable-demuxer=h264 \
   --enable-demuxer=hevc \
+  --enable-demuxer=silk \
+  --enable-muxer=silk \
   --enable-decoder=aac \
   --enable-decoder=mp3 \
   --enable-decoder=vorbis \

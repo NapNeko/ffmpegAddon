@@ -2,7 +2,7 @@ From 56722ae0613aaecb5a8340ba8b294d6416a57ad9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 13:20:29 +0800
-Subject: [PATCH 3/5] Add SILK v3 codec stub with third_party integration
+Subject: [PATCH 3/6] Add SILK v3 codec stub with third_party integration
 
 Introduces a stub implementation for the SILK v3 audio codec, including encoder and decoder registration, a minimal adapter layer (silk_adapter.[ch]) to interface with the third_party SILK v3 decoder, and build system integration. Updates configure and Makefile to support the new codec and its dependencies, and adds necessary includes and object files for compilation. This lays the groundwork for full SILK v3 support in FFmpeg using bundled third_party sources.
 ---
