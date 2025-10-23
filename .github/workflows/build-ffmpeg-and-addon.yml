@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Applying patches to ffmpeg_src"
-          cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --whitespace=fix ../patches/*.patch
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --ignore-whitespace ../patches/*.patch
 
       - name: Build FFmpeg
         env:
