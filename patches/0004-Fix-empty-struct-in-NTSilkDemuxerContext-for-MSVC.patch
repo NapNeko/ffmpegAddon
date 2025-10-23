@@ -1,0 +1,27 @@
+From b7a547e68f166f871b9d1194fb78977f94841740 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Thu, 23 Oct 2025 17:10:23 +0800
+Subject: [PATCH 4/4] Fix empty struct in NTSilkDemuxerContext for MSVC
+
+Added an int64_t pos field to NTSilkDemuxerContext to prevent compilation errors with MSVC, which does not allow empty structs.
+---
+ libavformat/ntsilk.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libavformat/ntsilk.c b/libavformat/ntsilk.c
+index 1d4f6a2707..606502efa9 100644
+--- a/libavformat/ntsilk.c
++++ b/libavformat/ntsilk.c
+@@ -13,7 +13,7 @@ static const uint8_t NTSILK_SKP_HEADER[9]  = "#!SILK_V3";
+ static const uint8_t NTSILK_TCT_HEADER[10] = "\x02#!SILK_V3";
+ 
+ typedef struct NTSilkDemuxerContext {
+-    // int64_t pos;
++     int64_t pos; // msvc cant compile if empty struct
+ } NTSilkDemuxerContext;
+ 
+ static int ntsilk_probe_skp(const AVProbeData *p)
+-- 
+2.47.0.windows.2
+
