@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Applying patches to ffmpeg_src"
-          cd ffmpeg_src && git apply --whitespace=fix ../patches/*.patch
+          cd ffmpeg_src && git apply --whitespace=fix ../ctrl/*.patch
         shell: bash
 
       - name: Configure & build static FFmpeg
@@ -101,6 +101,12 @@ jobs:
         run: |
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+          # 递归转换为 LF 换行符，防止 patch 失败
+          Get-ChildItem -Path ffmpeg_src -Recurse -File | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            $content = $content -replace "\r\n", "\n"
+            Set-Content $_.FullName -NoNewline $content
+          }
 
       - name: Apply repository patches to ffmpeg_src (Windows/msys2)
         env:
@@ -109,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Applying patches to ffmpeg_src"
-          cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --whitespace=fix ../patches/*.patch
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --whitespace=fix ../ctrl/*.patch
 
       - name: Build FFmpeg
         env:
@@ -184,7 +190,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Applying patches to ffmpeg_src"
-          cd ffmpeg_src && git apply --whitespace=fix ../patches/*.patch
+          cd ffmpeg_src && git apply --whitespace=fix ../ctrl/*.patch
 
       - name: Configure & build static FFmpeg
         run: |
