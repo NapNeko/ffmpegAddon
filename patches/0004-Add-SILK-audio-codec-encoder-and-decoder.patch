@@ -2,7 +2,7 @@ From 143fe978bc13212e5b8f3acb5587590cedf1589c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Wed, 22 Oct 2025 23:53:29 +0800
-Subject: [PATCH 4/6] Add SILK audio codec encoder and decoder
+Subject: [PATCH 4/7] Add SILK audio codec encoder and decoder
 
 Introduces support for the SILK audio codec by adding encoder and decoder implementations (silkenc.c/h, silkdec.c/h), updating the build system and codec registration, and defining the AV_CODEC_ID_SILK. This enables encoding and decoding of SILK audio streams within FFmpeg.
 ---

@@ -1,0 +1,78 @@
+From d778b8b74c0b13980efdd67159008466b5477a0e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Thu, 23 Oct 2025 08:20:06 +0800
+Subject: [PATCH 7/7] Fix variable redefinitions and function signature in
+ silkdec.c
+
+Removed redundant variable redefinitions and updated the silk_decode function signature to use AVFrame *frame instead of void *data. Also added a missing AV_CODEC_ID_SILK definition guard to improve compatibility.
+---
+ libavcodec/silkdec.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/silkdec.c b/libavcodec/silkdec.c
+index 8860bf51ee..d66d611b6b 100644
+--- a/libavcodec/silkdec.c
++++ b/libavcodec/silkdec.c
+@@ -1,5 +1,8 @@
+ #include "libavcodec/avcodec.h"
+ #include "codec_id.h"
++#ifndef AV_CODEC_ID_SILK
++#define AV_CODEC_ID_SILK ((enum AVCodecID)0x16000)
++#endif
+ #include "libavcodec/codec_internal.h"
+ #include "libavutil/channel_layout.h"
+ #include "libavutil/opt.h"
+@@ -39,7 +42,7 @@ static av_cold int silk_decode_init(AVCodecContext *avctx) {
+ 
+ static void ffmpeg_silk_decode(const uint8_t* silk_data, int data_len, void (*callback)(void*, const uint8_t*, int), void* userdata) {
+     SKP_uint8 payload[MAX_BYTES_PER_FRAME * MAX_INPUT_FRAMES * (MAX_LBRR_DELAY + 1)] = {0};
+-    SKP_uint8* payloadEnd = payload;
++    SKP_uint8* payloadEnd;
+     SKP_int16 nBytesPerPacket[MAX_LBRR_DELAY + 1] = {0};
+     SKP_int16 nBytes = 0, totalLen = 0, len = 0;
+     SKP_int32 decSizeBytes = 0;
+@@ -47,6 +50,9 @@ static void ffmpeg_silk_decode(const uint8_t* silk_data, int data_len, void (*ca
+     void* psDec = NULL;
+     SKP_SILK_SDK_DecControlStruct dec_control = {0};
+     int remainPackets = 0;
++    int frames = 0;
++    SKP_int16* outPtr = NULL;
++    SKP_int16 totBytes = 0;
+ 
+     // 跳过 magic
+     if (memcmp(psRead, "\x02#!SILK_V3", 9) != 0) return;
+@@ -89,9 +95,9 @@ static void ffmpeg_silk_decode(const uint8_t* silk_data, int data_len, void (*ca
+         if (nBytesPerPacket[0] != 0) {
+             nBytes = nBytesPerPacket[0];
+         }
+-        SKP_int16* outPtr = out;
++        outPtr = out;
+         totalLen = 0;
+-        int frames = 0;
++        frames = 0;
+         do {
+             SKP_Silk_SDK_Decode(psDec, &dec_control, 0, payload, nBytes, outPtr, &len);
+             frames++;
+@@ -104,7 +110,7 @@ static void ffmpeg_silk_decode(const uint8_t* silk_data, int data_len, void (*ca
+             }
+         } while (dec_control.moreInternalDecoderFrames);
+         callback(userdata, (const uint8_t*)out, sizeof(SKP_int16) * totalLen);
+-        SKP_int16 totBytes = 0;
++        totBytes = 0;
+         for (int i = 0; i < MAX_LBRR_DELAY; i++) {
+             totBytes += nBytesPerPacket[i + 1];
+         }
+@@ -119,8 +125,7 @@ static void ffmpeg_silk_decode(const uint8_t* silk_data, int data_len, void (*ca
+     av_free(psDec);
+ }
+ 
+-static int silk_decode(AVCodecContext *avctx, void *data, int *got_frame_ptr, AVPacket *pkt) {
+-    AVFrame *frame = data;
++static int silk_decode(AVCodecContext *avctx, AVFrame *frame, int *got_frame_ptr, AVPacket *pkt) {
+     // 预分配最大空间
+     frame->nb_samples = 480 * MAX_INPUT_FRAMES;
+     frame->format = AV_SAMPLE_FMT_S16;
+-- 
+2.47.0.windows.2
+
