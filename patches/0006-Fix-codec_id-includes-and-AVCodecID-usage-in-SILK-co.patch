@@ -1,0 +1,68 @@
+From a40c8a31290ea6ce0ce15f301e1f5652cc4f29ef Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Thu, 23 Oct 2025 08:07:01 +0800
+Subject: [PATCH 6/6] Fix codec_id includes and AVCodecID usage in SILK codec
+
+Replaces incorrect and duplicate codec_id includes with the correct header in silkdec.c and silkenc.c. Also updates usage of AVCodecID.AV_CODEC_ID_SILK to AV_CODEC_ID_SILK for consistency and correctness.
+---
+ libavcodec/silkdec.c | 8 ++++----
+ libavcodec/silkenc.c | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/silkdec.c b/libavcodec/silkdec.c
+index 25884b5efe..8860bf51ee 100644
+--- a/libavcodec/silkdec.c
++++ b/libavcodec/silkdec.c
+@@ -1,14 +1,14 @@
+ #include "libavcodec/avcodec.h"
+-#include "libavcodec/codec_id.h"
++#include "codec_id.h"
+ #include "libavcodec/codec_internal.h"
+ #include "libavutil/channel_layout.h"
+ #include "libavutil/opt.h"
+-#include "libavcodec/codec_id.h"
++#include "libavutil/mem.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_SDK_API.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_control.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_typedef.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_errors.h"
+-#include <codec_id.h>
++
+ #define SILK_SAMPLE_RATE 24000
+ #define MAX_BYTES_PER_FRAME 250
+ #define MAX_INPUT_FRAMES 5
+@@ -156,7 +156,7 @@ const FFCodec ff_silk_decoder = {
+     .p.name           = "silk",
+     .p.long_name      = "SILK audio decoder",
+     .p.type           = AVMEDIA_TYPE_AUDIO,
+-    .p.id             = AVCodecID.AV_CODEC_ID_SILK,
++    .p.id             = AV_CODEC_ID_SILK,
+     .p.capabilities   = AV_CODEC_CAP_DR1,
+     .priv_data_size   = sizeof(SilkDecContext),
+     .init             = silk_decode_init,
+diff --git a/libavcodec/silkenc.c b/libavcodec/silkenc.c
+index a56d89e493..458a1e038e 100644
+--- a/libavcodec/silkenc.c
++++ b/libavcodec/silkenc.c
+@@ -19,7 +19,7 @@
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_control.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_typedef.h"
+ #include "libavcodec/silk_v3_decoder/interface/SKP_Silk_errors.h"
+-#include <codec_id.h>
++#include "codec_id.h"
+ 
+ 
+ typedef struct SilkEncContext {
+@@ -149,7 +149,7 @@ const FFCodec ff_silk_encoder = {
+     .p.name           = "silk",
+     .p.long_name      = "SILK audio encoder",
+     .p.type           = AVMEDIA_TYPE_AUDIO,
+-    .p.id             = AVCodecID.AV_CODEC_ID_SILK,
++    .p.id             = AV_CODEC_ID_SILK,
+     .p.capabilities   = AV_CODEC_CAP_DR1,
+     .priv_data_size   = sizeof(SilkEncContext),
+     .init             = silk_encode_init,
+-- 
+2.47.0.windows.2
+
