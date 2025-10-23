@@ -58,8 +58,12 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-demuxer=flac \
   --enable-demuxer=h264 \
   --enable-demuxer=hevc \
-  --enable-demuxer=silk \
-  --enable-muxer=silk \
+  --enable-demuxer=silk_skp_s16le \
+  --enable-muxer=silk_skp_s16le \
+  --enable-demuxer=silk_tct_s16le \
+  --enable-muxer=silk_tct_s16le \
+  --enable-decoder=silk_skp_s16le \
+  --enable-encoder=silk_skp_s16le \
   --enable-decoder=aac \
   --enable-decoder=mp3 \
   --enable-decoder=vorbis \
@@ -70,8 +74,6 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=mjpeg \
   --enable-decoder=vp8 \
   --enable-decoder=vp9 \
-  --enable-decoder=silk \
-  --enable-encoder=silk \
   --enable-parser=h264 \
   --enable-parser=hevc \
   --enable-parser=aac \

@@ -1,13 +1,13 @@
-From 01c95756d07e3717ca5035bfba86f8a26e2dea96 Mon Sep 17 00:00:00 2001
+From cccdf5dae398db0b1b48ee9f390d2263d4bd7197 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
-Date: Thu, 23 Oct 2025 16:27:32 +0800
+Date: Thu, 23 Oct 2025 16:36:15 +0800
 Subject: [PATCH 3/3] Add SILK v3 codec stub with third_party integration
 
 Introduces a stub implementation for the SILK v3 audio codec, including encoder and decoder registration, a minimal adapter layer (silk_adapter.[ch]) to interface with the third_party SILK v3 decoder, and build system integration. Updates configure and Makefile to support the new codec and its dependencies, and adds necessary includes and object files for compilation. This lays the groundwork for full SILK v3 support in FFmpeg using bundled third_party sources.
 ---
- libavcodec/Makefile         |   4 +
- libavcodec/allcodecs.c      |   4 +
+ libavcodec/Makefile         |   2 +
+ libavcodec/allcodecs.c      |   2 +
  libavcodec/codec_desc.c     |   7 +
  libavcodec/codec_id.h       |   3 +
  libavcodec/ntsilk_skp.c     |  28 ++++
@@ -19,7 +19,7 @@ Introduces a stub implementation for the SILK v3 audio codec, including encoder 
  libavformat/ntsilk.c        | 253 ++++++++++++++++++++++++++++++++++++
  libavformat/silkdemuxer.c   |  87 +++++++++++++
  libavformat/silkmuxer.c     |  43 ++++++
- 13 files changed, 913 insertions(+)
+ 13 files changed, 909 insertions(+)
  create mode 100644 libavcodec/ntsilk_skp.c
  create mode 100644 libavcodec/ntsilk_skp.h
  create mode 100644 libavcodec/ntsilk_skp_dec.c
@@ -29,19 +29,10 @@ Introduces a stub implementation for the SILK v3 audio codec, including encoder 
  create mode 100644 libavformat/silkmuxer.c
 
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
-index 153a9e3881..cb2f5c5a20 100644
+index 153a9e3881..57c830d73a 100644
 --- a/libavcodec/Makefile
 +++ b/libavcodec/Makefile
-@@ -180,6 +180,8 @@ OBJS-$(CONFIG_WMA_FREQS)               += wma_freqs.o
- OBJS-$(CONFIG_WMV2DSP)                 += wmv2dsp.o
- 
- # decoders/encoders
-+OBJS-$(CONFIG_SILK_DECODER)              += silkdec.o
-+OBJS-$(CONFIG_SILK_ENCODER)              += silkenc.o
- OBJS-$(CONFIG_ZERO12V_DECODER)         += 012v.o
- OBJS-$(CONFIG_A64MULTI_ENCODER)        += a64multienc.o elbg.o
- OBJS-$(CONFIG_A64MULTI5_ENCODER)       += a64multienc.o elbg.o
-@@ -586,6 +588,8 @@ OBJS-$(CONFIG_MXPEG_DECODER)           += mxpegdec.o
+@@ -586,6 +586,8 @@ OBJS-$(CONFIG_MXPEG_DECODER)           += mxpegdec.o
  OBJS-$(CONFIG_NELLYMOSER_DECODER)      += nellymoserdec.o nellymoser.o
  OBJS-$(CONFIG_NELLYMOSER_ENCODER)      += nellymoserenc.o nellymoser.o
  OBJS-$(CONFIG_NOTCHLC_DECODER)         += notchlc.o
@@ -51,19 +42,10 @@ index 153a9e3881..cb2f5c5a20 100644
  OBJS-$(CONFIG_ON2AVC_DECODER)          += on2avc.o on2avcdata.o
  OBJS-$(CONFIG_OPUS_DECODER)            += vorbis_data.o
 diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
-index aa0fc47647..b407a1005a 100644
+index aa0fc47647..3f34ba8590 100644
 --- a/libavcodec/allcodecs.c
 +++ b/libavcodec/allcodecs.c
-@@ -418,6 +418,8 @@ extern const FFCodec ff_zmbv_encoder;
- extern const FFCodec ff_zmbv_decoder;
- 
- /* audio codecs */
-+extern const FFCodec ff_silk_encoder;
-+extern const FFCodec ff_silk_decoder;
- extern const FFCodec ff_aac_encoder;
- extern const FFCodec ff_aac_decoder;
- extern const FFCodec ff_aac_fixed_decoder;
-@@ -505,6 +507,8 @@ extern const FFCodec ff_mpc8_decoder;
+@@ -505,6 +505,8 @@ extern const FFCodec ff_mpc8_decoder;
  extern const FFCodec ff_msnsiren_decoder;
  extern const FFCodec ff_nellymoser_encoder;
  extern const FFCodec ff_nellymoser_decoder;
