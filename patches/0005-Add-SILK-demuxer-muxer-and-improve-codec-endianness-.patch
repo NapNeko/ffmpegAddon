@@ -2,7 +2,7 @@ From e321e6db53150383befe4df93c06b8613289aae9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 14:03:35 +0800
-Subject: [PATCH 5/7] Add SILK demuxer/muxer and improve codec endianness
+Subject: [PATCH 5/8] Add SILK demuxer/muxer and improve codec endianness
  handling
 
 Introduces new SILK demuxer (libavformat/silkdec.c) and muxer (libavformat/silkenc.c) for handling SILK audio streams. Updates silkdec.c and silkenc.c in libavcodec to improve endianness handling and buffer management, and refactors encoding/decoding logic for better compatibility and maintainability.

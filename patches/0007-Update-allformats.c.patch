@@ -2,7 +2,7 @@ From 1c16c6aab3d62d5ff0b83eebbd7b20372f1de389 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 14:29:59 +0800
-Subject: [PATCH 7/7] Update allformats.c
+Subject: [PATCH 7/8] Update allformats.c
 
 ---
  libavformat/allformats.c | 4 ++++

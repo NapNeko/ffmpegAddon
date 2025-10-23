@@ -2,7 +2,7 @@ From cd2fec6ca42702e81729492b222d4b1ed4c78bea Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 14:19:25 +0800
-Subject: [PATCH 6/7] Add SILK demuxer and muxer to Makefile
+Subject: [PATCH 6/8] Add SILK demuxer and muxer to Makefile
 
 Registered silkdec.o and silkenc.o for SILK demuxer and muxer in libavformat/Makefile to enable support for SILK format.
 ---

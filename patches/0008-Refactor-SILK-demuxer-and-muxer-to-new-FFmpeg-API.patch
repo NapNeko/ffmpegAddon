@@ -1,0 +1,121 @@
+From 53e291d8dc386b2389cd182754f6191fc8ffc768 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Thu, 23 Oct 2025 14:42:04 +0800
+Subject: [PATCH 8/8] Refactor SILK demuxer and muxer to new FFmpeg API
+
+Updated silkdemuxer.c and silkmuxer.c to use FFInputFormat and FFOutputFormat structures, aligning with the new FFmpeg internal API. Added necessary includes and adjusted field names for compatibility. This improves maintainability and prepares the code for future FFmpeg updates.
+---
+ libavformat/silkdemuxer.c | 39 ++++++++++++++++++++++++---------------
+ libavformat/silkmuxer.c   | 26 +++++++++++---------------
+ 2 files changed, 35 insertions(+), 30 deletions(-)
+
+diff --git a/libavformat/silkdemuxer.c b/libavformat/silkdemuxer.c
+index 162d11d661..a4b0d9b481 100644
+--- a/libavformat/silkdemuxer.c
++++ b/libavformat/silkdemuxer.c
+@@ -1,14 +1,24 @@
+ 
++
++#include "config_components.h"
+ #include "libavcodec/codec_id.h"
++#include "libavutil/avassert.h"
++#include "libavutil/intreadwrite.h"
++#include "libavutil/log.h"
++#include "libavutil/opt.h"
++#include "avformat.h"
++#include "avio.h"
++#include "avio_internal.h"
++#include "demux.h"
++#include "internal.h"
++
+ #ifndef AV_CODEC_ID_SILK
+ #define AV_CODEC_ID_SILK ((enum AVCodecID)0x16000)
+ #endif
+-#include "libavformat/avformat.h"
+-#include "libavformat/internal.h"
+-
+ #define SILK_HEADER_MAGIC "\x02#!SILK_V3"
+ #define SILK_HEADER_SIZE 9
+ 
++
+ static int silk_probe(const AVProbeData *p) {
+     if (p->buf_size < SILK_HEADER_SIZE)
+         return 0;
+@@ -44,16 +54,15 @@ static int silk_read_packet(AVFormatContext *s, AVPacket *pkt) {
+     return 0;
+ }
+ 
+-AVInputFormat ff_silk_demuxer = {
+-    .name        = "silk",
+-    .long_name   = "SILK audio demuxer",
+-    .flags       = 0,
+-    .extensions  = "silk",
+-    .codec_tag   = NULL,
+-    .priv_class  = NULL,
+-    .mime_type   = "audio/silk",
+-    .read_probe  = silk_probe,
+-    .read_header = silk_read_header,
+-    .read_packet = silk_read_packet,
+-    .raw_codec_id = AV_CODEC_ID_SILK,
++
++const FFInputFormat ff_silk_demuxer = {
++    .p.name         = "silk",
++    .p.long_name    = NULL_IF_CONFIG_SMALL("SILK audio demuxer"),
++    .p.extensions   = "silk",
++    .p.mime_type    = "audio/silk",
++    .priv_data_size = 0,
++    .read_probe     = silk_probe,
++    .read_header    = silk_read_header,
++    .read_packet    = silk_read_packet,
++    // 可根据需要添加 .read_seek 等其他回调
+ };
+diff --git a/libavformat/silkmuxer.c b/libavformat/silkmuxer.c
+index ebabf1acbb..4600e177b3 100644
+--- a/libavformat/silkmuxer.c
++++ b/libavformat/silkmuxer.c
+@@ -1,11 +1,13 @@
++
++#include "config_components.h"
+ #include "libavcodec/codec_id.h"
+ #ifndef AV_CODEC_ID_SILK
+ #define AV_CODEC_ID_SILK ((enum AVCodecID)0x16000)
+ #endif
+-// FFmpeg Silk Muxer
+ #include "libavformat/avformat.h"
+ #include "libavformat/internal.h"
+ #include "libavcodec/codec_id.h"
++#include "mux.h"
+ 
+ 
+ static int silk_write_header(AVFormatContext *s) {
+@@ -24,18 +26,12 @@ static int silk_write_trailer(AVFormatContext *s) {
+     return 0;
+ }
+ 
+-AVOutputFormat ff_silk_muxer = {
+-    .name         = "silk",
+-    .long_name    = "SILK audio muxer",
+-    .mime_type    = "audio/silk",
+-    .extensions   = "silk",
+-    .audio_codec  = AV_CODEC_ID_SILK,
+-    .video_codec  = AV_CODEC_ID_NONE,
+-    .subtitle_codec = AV_CODEC_ID_NONE,
+-    .flags        = 0,
+-    .codec_tag    = NULL,
+-    .priv_class   = NULL,
+-    .write_header = silk_write_header,
+-    .write_packet = silk_write_packet,
+-    .write_trailer = silk_write_trailer,
++const FFOutputFormat ff_silk_muxer = {
++    .p.name         = "silk",
++    .p.long_name    = "SILK audio muxer",
++    .p.extensions   = "silk",
++    .p.mime_type    = "audio/silk",
++    .write_header   = silk_write_header,
++    .write_packet   = silk_write_packet,
++    .write_trailer  = silk_write_trailer,
+ };
+-- 
+2.47.0.windows.2
+
