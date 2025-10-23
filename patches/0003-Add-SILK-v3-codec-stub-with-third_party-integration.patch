@@ -1,7 +1,7 @@
-From cccdf5dae398db0b1b48ee9f390d2263d4bd7197 Mon Sep 17 00:00:00 2001
+From 53d9dba6c0a75c0418f99c2b00298f2ddbe70950 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
-Date: Thu, 23 Oct 2025 16:36:15 +0800
+Date: Thu, 23 Oct 2025 17:02:56 +0800
 Subject: [PATCH 3/3] Add SILK v3 codec stub with third_party integration
 
 Introduces a stub implementation for the SILK v3 audio codec, including encoder and decoder registration, a minimal adapter layer (silk_adapter.[ch]) to interface with the third_party SILK v3 decoder, and build system integration. Updates configure and Makefile to support the new codec and its dependencies, and adds necessary includes and object files for compilation. This lays the groundwork for full SILK v3 support in FFmpeg using bundled third_party sources.
@@ -10,23 +10,19 @@ Introduces a stub implementation for the SILK v3 audio codec, including encoder 
  libavcodec/allcodecs.c      |   2 +
  libavcodec/codec_desc.c     |   7 +
  libavcodec/codec_id.h       |   3 +
- libavcodec/ntsilk_skp.c     |  28 ++++
+ libavcodec/ntsilk_skp.c     |  27 ++++
  libavcodec/ntsilk_skp.h     |  21 +++
- libavcodec/ntsilk_skp_dec.c | 197 ++++++++++++++++++++++++++++
- libavcodec/ntsilk_skp_enc.c | 252 +++++++++++++++++++++++++++++++++++
+ libavcodec/ntsilk_skp_dec.c | 196 ++++++++++++++++++++++++++++
+ libavcodec/ntsilk_skp_enc.c | 238 +++++++++++++++++++++++++++++++++
  libavformat/Makefile        |   6 +
  libavformat/allformats.c    |   8 ++
  libavformat/ntsilk.c        | 253 ++++++++++++++++++++++++++++++++++++
- libavformat/silkdemuxer.c   |  87 +++++++++++++
- libavformat/silkmuxer.c     |  43 ++++++
- 13 files changed, 909 insertions(+)
+ 11 files changed, 763 insertions(+)
  create mode 100644 libavcodec/ntsilk_skp.c
  create mode 100644 libavcodec/ntsilk_skp.h
  create mode 100644 libavcodec/ntsilk_skp_dec.c
  create mode 100644 libavcodec/ntsilk_skp_enc.c
  create mode 100644 libavformat/ntsilk.c
- create mode 100644 libavformat/silkdemuxer.c
- create mode 100644 libavformat/silkmuxer.c
 
 diff --git a/libavcodec/Makefile b/libavcodec/Makefile
 index 153a9e3881..57c830d73a 100644
@@ -88,12 +84,11 @@ index 0a8d3bed1e..4b287ab66c 100644
      AV_CODEC_ID_DVD_SUBTITLE = 0x17000,
 diff --git a/libavcodec/ntsilk_skp.c b/libavcodec/ntsilk_skp.c
 new file mode 100644
-index 0000000000..48418765c9
+index 0000000000..fe3483177b
 --- /dev/null
 +++ b/libavcodec/ntsilk_skp.c
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,27 @@
 +#include "../../silk-v3-decoder/silk/interface/SKP_Silk_errors.h"
-+
 +#include "ntsilk_skp.h"
 +#include "libavutil/error.h"
 +
@@ -109,7 +104,7 @@ index 0000000000..48418765c9
 +
 +const size_t ENCODER_MAX_INPUT_FRAMES   = 1;
 +const int16_t ENCODER_MAX_PAYLOAD_BYTES = 800; // COMMON_MAX_BYTES_PER_FRAME * ENCODER_MAX_INPUT_FRAMES
-+const int16_t ENCODER_MAX_OUT_BYTES     = 802; // ENCODER_MAX_PAYLOAD_BYTES  2 // sizeof(int16_t)
++const int16_t ENCODER_MAX_OUT_BYTES     = 802; // ENCODER_MAX_PAYLOAD_BYTES + 2 // sizeof(int16_t)
 +
 +const size_t DECODER_MAX_INPUT_FRAMES   = 5;
 +
@@ -151,12 +146,11 @@ index 0000000000..2a2cf10ecd
 \ No newline at end of file
 diff --git a/libavcodec/ntsilk_skp_dec.c b/libavcodec/ntsilk_skp_dec.c
 new file mode 100644
-index 0000000000..6e3b5cb780
+index 0000000000..a9bfb6504a
 --- /dev/null
 +++ b/libavcodec/ntsilk_skp_dec.c
-@@ -0,0 +1,197 @@
+@@ -0,0 +1,196 @@
 +#include "../silk-v3-decoder/silk/interface/SKP_Silk_SDK_API.h"
-+
 +#include "libavutil/mem.h"
 +#include "libavutil/opt.h"
 +#include "libavutil/samplefmt.h"
@@ -174,11 +168,11 @@ index 0000000000..6e3b5cb780
 +
 +    void *dec;
 +
-+    // uint8_t payload[    MAX_BYTES_PER_FRAME * DECODER_MAX_INPUT_FRAMES * ( MAX_LBRR_DELAY  1 ) ];
++    // uint8_t payload[    MAX_BYTES_PER_FRAME * DECODER_MAX_INPUT_FRAMES * ( MAX_LBRR_DELAY + 1 ) ];
 +    // uint8_t *payloadEnd = NULL;
 +    // uint8_t *payloadToDec = NULL;
 +    // uint8_t FECpayload[ MAX_BYTES_PER_FRAME * DECODER_MAX_INPUT_FRAMES ], *payloadPtr;
-+    // int16_t nBytesPerPacket[ MAX_LBRR_DELAY  1 ];
++    // int16_t nBytesPerPacket[ MAX_LBRR_DELAY + 1 ];
 +    // int16_t totBytes;
 +    // int16_t out[ ( ( FRAME_LENGTH_MS * MAX_API_FS_KHZ ) << 1 ) * DECODER_MAX_INPUT_FRAMES ], *outPtr;
 +} NTSilkSKPDecoderContext;
@@ -202,7 +196,7 @@ index 0000000000..6e3b5cb780
 +    // n_bytes = *(int16_t *)avpkt->data;
 +
 +    // nBytesPerPacket[ MAX_LBRR_DELAY ] = n_bytes;
-+    // payloadEnd = n_bytes;
++    // payloadEnd += n_bytes;
 +    // lost = 0;
 +    // n_bytes = nBytesPerPacket[ 0 ];
 +    // payloadToDec = payload;
@@ -227,11 +221,11 @@ index 0000000000..6e3b5cb780
 +            return ff_ntsilk_error_to_averror(err);
 +        }
 +
-+        // frames;
++        // frames++;
 +
 +        // Unlike memcpy() etc., add len (offset) directly as data type's int16_t
-+        out = len;
-+        frame->nb_samples = len;
++        out += len;
++        frame->nb_samples += len;
 +
 +        // if (frames > DECODER_MAX_INPUT_FRAMES) {
 +        //     av_log(avctx, AV_LOG_WARNING,
@@ -247,8 +241,8 @@ index 0000000000..6e3b5cb780
 +
 +    // // Update buffer
 +    // totBytes = 0;
-+    // for (i = 0; i < MAX_LBRR_DELAY; i) {
-+    //     totBytes = nBytesPerPacket[i  1];
++    // for (i = 0; i < MAX_LBRR_DELAY; i++) {
++    //     totBytes += nBytesPerPacket[i + 1];
 +    // }
 +    // memmove(payload, &payload[nBytesPerPacket[0]], totBytes * sizeof(uint8_t));
 +    // payloadEnd -= nBytesPerPacket[0];
@@ -355,12 +349,11 @@ index 0000000000..6e3b5cb780
 \ No newline at end of file
 diff --git a/libavcodec/ntsilk_skp_enc.c b/libavcodec/ntsilk_skp_enc.c
 new file mode 100644
-index 0000000000..39637d015f
+index 0000000000..d41f65ffe7
 --- /dev/null
 +++ b/libavcodec/ntsilk_skp_enc.c
-@@ -0,0 +1,252 @@
+@@ -0,0 +1,238 @@
 +#include "../../silk-v3-decoder/silk/interface/SKP_Silk_SDK_API.h"
-+
 +#include "libavutil/channel_layout.h"
 +#include "libavutil/mem.h"
 +#include "libavutil/opt.h"
@@ -372,13 +365,12 @@ index 0000000000..39637d015f
 +// typedef struct NTSilkSKPEncoderOptions {
 +// } NTSilkSKPEncoderOptions;
 +
-+typedef struct NTSilkSKPEncoderContext
-+{
++typedef struct NTSilkSKPEncoderContext {
 +    const AVClass *class;
 +    SKP_SILK_SDK_EncControlStruct enc_control;
 +    SKP_SILK_SDK_EncControlStruct enc_status;
 +
-+    void *enc;
++    void                          *enc;
 +
 +    // uint8_t in[COMMON_MAX_INPUT_SIZE];
 +    // uint8_t out[ENCODER_MAX_PAYLOAD_BYTES];
@@ -418,15 +410,14 @@ index 0000000000..39637d015f
 +        (const int16_t *)frame->data[0],
 +        counter,
 +        avpkt->data + 2, // sizeof(int16_t)
-+        &n_bytes);     // Must use sctx.n_bytes and not avpkt->size as it's I/O par
-+    if (err)
-+    {
++        &n_bytes); // Must use sctx.n_bytes and not avpkt->size as it's I/O par
++    if (err) {
 +        av_log(avctx, AV_LOG_ERROR,
-+               "Error encoding frame: %d\n", err);
++             "Error encoding frame: %d\n", err);
 +        return ff_ntsilk_error_to_averror(err);
 +    }
 +
-+    // sctx->samples_since_last_packet = sctx->counter;
++    // sctx->samples_since_last_packet += sctx->counter;
 +
 +    // if( ( ( 1000 * sctx->samples_since_last_packet ) / sctx->enc_control.API_sampleRate ) == 20 ) {
 +    // Always true
@@ -453,13 +444,13 @@ index 0000000000..39637d015f
 +    int32_t enc_size;
 +
 +    // Set encoder par
-+    sctx->enc_control.API_sampleRate = avctx->sample_rate;                                                 // Input sample rate
-+    sctx->enc_control.maxInternalSampleRate = 24000;                                                       // Output sample rate
++    sctx->enc_control.API_sampleRate                 = avctx->sample_rate;                                 // Input sample rate
++    sctx->enc_control.maxInternalSampleRate          = 24000;                                              // Output sample rate
 +    sctx->enc_control.packetSize = avctx->frame_size = 20 /* ms */ * avctx->sample_rate / 1000 /* s/ms */; // Input frame(packet) size
-+    sctx->enc_control.packetLossPercentage = 0;
-+    sctx->enc_control.useInBandFEC = 0;
-+    sctx->enc_control.useDTX = 0;
-+    sctx->enc_control.complexity = 2;
++    sctx->enc_control.packetLossPercentage           = 0;
++    sctx->enc_control.useInBandFEC                   = 0;
++    sctx->enc_control.useDTX                         = 0;
++    sctx->enc_control.complexity                     = 2;
 +
 +    // if (!avctx->bit_rate) {
 +    //     sctx->enc_control.bitRate = avctx->bit_rate       = 25000;
@@ -478,24 +469,21 @@ index 0000000000..39637d015f
 +
 +    // Init encoder
 +    err = SKP_Silk_SDK_Get_Encoder_Size(&enc_size);
-+    if (err)
-+    {
++    if (err) {
 +        av_log(avctx, AV_LOG_ERROR,
 +               "Failed to create encoder: %d\n", err);
 +        return ff_ntsilk_error_to_averror(err);
 +    }
 +
 +    sctx->enc = av_malloc(enc_size);
-+    if (!sctx->enc)
-+    {
++    if (!sctx->enc) {
 +        av_log(avctx, AV_LOG_FATAL,
 +               "Failed to alloc memory for encoder.\n");
 +        return AVERROR(ENOMEM);
 +    }
 +
 +    err = SKP_Silk_SDK_InitEncoder(sctx->enc, &sctx->enc_status);
-+    if (err)
-+    {
++    if (err) {
 +        av_log(avctx, AV_LOG_FATAL,
 +               "Failed to create encoder: %d\n", err);
 +        return ff_ntsilk_error_to_averror(err);
@@ -521,30 +509,21 @@ index 0000000000..39637d015f
 +
 +static const AVClass ntsilkenc_class = {
 +    .class_name = "NTSilk Encoder",
-+    .item_name = av_default_item_name,
-+    .option = ntsilkenc_options,
-+    .version = LIBAVUTIL_VERSION_INT,
++    .item_name  = av_default_item_name,
++    .option     = ntsilkenc_options,
++    .version    = LIBAVUTIL_VERSION_INT,
 +};
 +
 +static const int ntsilk_supported_samplerates[] = {
-+    48000,
-+    44100,
-+    32000,
-+    24000,
-+    16000,
-+    12000,
-+    8000,
-+    0,
++    48000, 44100, 32000, 24000, 16000, 12000, 8000, 0,
 +};
 +
 +static const AVChannelLayout ntsilk_ch_layouts[] = {
-+    AV_CHANNEL_LAYOUT_MONO,
-+    {0},
++    AV_CHANNEL_LAYOUT_MONO, {0},
 +};
 +
 +static const enum AVSampleFormat ntsilk_sample_fmts[] = {
-+    AV_SAMPLE_FMT_S16,
-+    AV_SAMPLE_FMT_NONE,
++    AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_NONE,
 +};
 +
 +static const FFCodecDefault ntsilkenc_defaults[] = {
@@ -552,64 +531,65 @@ index 0000000000..39637d015f
 +};
 +
 +const FFCodec ff_ntsilk_skp_s16le_encoder = {
-+    .p.name = "ntsilk_s16le",
++    .p.name                  = "ntsilk_s16le",
 +    CODEC_LONG_NAME("NTSilk (s16le) Encoder using SILK SDK"),
 +
-+    .p.priv_class = &ntsilkenc_class,
-+    .priv_data_size = sizeof(NTSilkSKPEncoderContext),
++    .p.priv_class            = &ntsilkenc_class,
++    .priv_data_size          = sizeof(NTSilkSKPEncoderContext),
 +
-+    .p.type = AVMEDIA_TYPE_AUDIO,
-+    .p.id = AV_CODEC_ID_NTSILK_S16LE,
++    .p.type                  = AVMEDIA_TYPE_AUDIO,
++    .p.id                    = AV_CODEC_ID_NTSILK_S16LE,
 +
-+    .defaults = ntsilkenc_defaults,
++    .defaults                = ntsilkenc_defaults,
 +
-+    .init = ntsilk_encode_init,
-+    .close = ntsilk_encode_close,
++    .init                    = ntsilk_encode_init,
++    .close                   = ntsilk_encode_close,
 +    FF_CODEC_ENCODE_CB(ntsilk_encode_s16le),
 +
-+    .p.capabilities = // Must use get_buffer() or get_encode_buffer()
-+                      // for allocating buffers.
-+                      //
-+    AV_CODEC_CAP_DR1
-+    //
-+    // NTSilk groups data as 20ms slices and will drop the last slice
-+    // when data size less than 20ms.
-+    //
-+    // The ntsilk_encode_xxxxx() calling
-+    // is very likely to get AVFrame with size less than 20ms.
-+    //
-+    // We use AFQ to temporarily store data in memory.
-+    // Each ntsilk_encode_xxxxx() calling will encode afq to <20ms.
-+    //
-+    // As a result, we automatically support variable AVFrame size.
-+    //
-+    // | AV_CODEC_CAP_SMALL_LAST_FRAME
-+    // | AV_CODEC_CAP_VARIABLE_FRAME_SIZE
-+    //
-+    // Since we have fixed the size of each AVPacket to 20ms,
-+    // another possible situation is -
-+    // if the size of the input AVFrame is larger than 20ms,
-+    // the data in AFQ will accumulate.
-+    //
-+    // To solve this problem, we must enable DELAY.
-+    // When DELAY is set,
-+    // libavcodec will repeatedly call ntsilk_encode_xxxxx()
-+    // without AVFrame, until there is no AVPacket output.
-+    // We use DELAY to encode the data accumulated in the AFQ.
-+    //
-+    // Note that this does not actually solve
-+    // the overflow problem.
-+    //
-+    // | AV_CODEC_CAP_DELAY
-+    ,
++    .p.capabilities          = // Must use get_buffer() or get_encode_buffer()
++                               // for allocating buffers.
++                               //
++                               AV_CODEC_CAP_DR1
++                               //
++                               // NTSilk groups data as 20ms slices and will drop the last slice
++                               // when data size less than 20ms.
++                               //
++                               // The ntsilk_encode_xxxxx() calling
++                               // is very likely to get AVFrame with size less than 20ms.
++                               //
++                               // We use AFQ to temporarily store data in memory.
++                               // Each ntsilk_encode_xxxxx() calling will encode afq to <20ms.
++                               //
++                               // As a result, we automatically support variable AVFrame size.
++                               //
++                               // | AV_CODEC_CAP_SMALL_LAST_FRAME
++                               // | AV_CODEC_CAP_VARIABLE_FRAME_SIZE
++                               //
++                               // Since we have fixed the size of each AVPacket to 20ms,
++                               // another possible situation is -
++                               // if the size of the input AVFrame is larger than 20ms,
++                               // the data in AFQ will accumulate.
++                               //
++                               // To solve this problem, we must enable DELAY.
++                               // When DELAY is set,
++                               // libavcodec will repeatedly call ntsilk_encode_xxxxx()
++                               // without AVFrame, until there is no AVPacket output.
++                               // We use DELAY to encode the data accumulated in the AFQ.
++                               //
++                               // Note that this does not actually solve
++                               // the overflow problem.
++                               //
++                               // | AV_CODEC_CAP_DELAY
++                               ,
 +
-+    .caps_internal = FF_CODEC_CAP_NOT_INIT_THREADSAFE | FF_CODEC_CAP_INIT_CLEANUP,
++    .caps_internal           = FF_CODEC_CAP_NOT_INIT_THREADSAFE
++                               | FF_CODEC_CAP_INIT_CLEANUP,
 +
 +    .p.supported_samplerates = ntsilk_supported_samplerates,
-+    .p.ch_layouts = ntsilk_ch_layouts,
-+    .p.sample_fmts = ntsilk_sample_fmts,
++    .p.ch_layouts            = ntsilk_ch_layouts,
++    .p.sample_fmts           = ntsilk_sample_fmts,
 +
-+    .p.wrapper_name = "skp",
++    .p.wrapper_name          = "skp",
 +};
 \ No newline at end of file
 diff --git a/libavformat/Makefile b/libavformat/Makefile
@@ -921,149 +901,6 @@ index 0000000000..1d4f6a2707
 +};
 +
 +#endif /* CONFIG_NTSILK_TCT_S16LE_MUXER */
-\ No newline at end of file
-diff --git a/libavformat/silkdemuxer.c b/libavformat/silkdemuxer.c
-new file mode 100644
-index 0000000000..71be1b6a44
---- /dev/null
-+++ b/libavformat/silkdemuxer.c
-@@ -0,0 +1,87 @@
-+#include "config_components.h"
-+#include "libavcodec/codec_id.h"
-+#include "libavutil/avassert.h"
-+#include "libavutil/intreadwrite.h"
-+#include "libavutil/log.h"
-+#include "libavutil/opt.h"
-+#include "avformat.h"
-+#include "avio.h"
-+#include "avio_internal.h"
-+#include "demux.h"
-+#include "mux.h"
-+#include "internal.h"
-+#include "libavcodec/codec_par.h"
-+#include "rawenc.h"
-+
-+#ifndef AV_CODEC_ID_SILK
-+#define AV_CODEC_ID_SILK ((enum AVCodecID)0x16000)
-+#endif
-+
-+#define SILK_HEADER_MAGIC "\x02#!SILK_V3"
-+#define SILK_HEADER_SIZE 9
-+
-+typedef struct SilkDemuxerContext {
-+    int dummy;
-+} SilkDemuxerContext;
-+
-+static const AVClass silk_demuxer_class = {
-+    .class_name = "silk demuxer",
-+    .item_name  = av_default_item_name,
-+    .version    = LIBAVUTIL_VERSION_INT,
-+};
-+
-+static int silk_probe(const AVProbeData *p)
-+{
-+    if (p->buf_size < SILK_HEADER_SIZE)
-+        return 0;
-+    if (!memcmp(p->buf, SILK_HEADER_MAGIC, SILK_HEADER_SIZE))
-+        return AVPROBE_SCORE_EXTENSION + 1;
-+    return 0;
-+}
-+
-+static int silk_read_header(AVFormatContext *s)
-+{
-+    AVStream *st = avformat_new_stream(s, NULL);
-+    if (!st)
-+        return AVERROR(ENOMEM);
-+
-+    st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
-+    st->codecpar->codec_id   = AV_CODEC_ID_SILK;
-+    st->codecpar->sample_rate = 24000;
-+
-+#if defined(AV_CHANNEL_LAYOUT_MONO)
-+    st->codecpar->ch_layout = (AVChannelLayout)AV_CHANNEL_LAYOUT_MONO;
-+#else
-+    av_channel_layout_default(&st->codecpar->ch_layout, 1);
-+#endif
-+
-+    st->start_time = 0;
-+    avpriv_set_pts_info(st, 64, 1, 24000);
-+
-+    avio_seek(s->pb, SILK_HEADER_SIZE, SEEK_SET);
-+    return 0;
-+}
-+
-+static int silk_read_packet(AVFormatContext *s, AVPacket *pkt)
-+{
-+    int ret = av_get_packet(s->pb, pkt, 4096);
-+    if (ret <= 0)
-+        return AVERROR_EOF;
-+    pkt->stream_index = 0;
-+    return 0;
-+}
-+
-+const FFInputFormat ff_silk_demuxer = {
-+    .p.name           = "silk",
-+    .p.long_name      = NULL_IF_CONFIG_SMALL("Silk audio"),
-+    .p.mime_type      = "audio/SILK",
-+    .p.extensions     = "silk",
-+    .p.priv_class     = &silk_demuxer_class,
-+    .priv_data_size   = sizeof(SilkDemuxerContext),
-+    .p.flags          = AVFMT_NOTIMESTAMPS | AVFMT_GENERIC_INDEX,
-+    .flags_internal   = FF_OFMT_FLAG_MAX_ONE_OF_EACH |
-+                        FF_OFMT_FLAG_ONLY_DEFAULT_CODECS,
-+    .read_probe       = silk_probe,
-+    .read_header      = silk_read_header,
-+    .read_packet      = silk_read_packet,
-+};
-diff --git a/libavformat/silkmuxer.c b/libavformat/silkmuxer.c
-new file mode 100644
-index 0000000000..0652158abb
---- /dev/null
-+++ b/libavformat/silkmuxer.c
-@@ -0,0 +1,43 @@
-+
-+#include "config_components.h"
-+#include "libavcodec/codec_id.h"
-+#ifndef AV_CODEC_ID_SILK
-+#define AV_CODEC_ID_SILK ((enum AVCodecID)0x16000)
-+#endif
-+#include "libavformat/avformat.h"
-+#include "libavformat/internal.h"
-+#include "libavcodec/codec_id.h"
-+#include "mux.h"
-+
-+static int silk_write_header(AVFormatContext *s)
-+{
-+    // 写入 SILK 头部
-+    static const uint8_t silk_header[] = {0x02, '#', '!', 'S', 'I', 'L', 'K', '_', 'V', '3'};
-+    avio_write(s->pb, silk_header, 9);
-+    return 0;
-+}
-+
-+static int silk_write_packet(AVFormatContext *s, AVPacket *pkt)
-+{
-+    avio_write(s->pb, pkt->data, pkt->size);
-+    return 0;
-+}
-+
-+static int silk_write_trailer(AVFormatContext *s)
-+{
-+    return 0;
-+}
-+const FFOutputFormat ff_silk_muxer = {
-+    .p.name = "silk_s16le",
-+    .p.long_name = NULL_IF_CONFIG_SMALL("SILK (Skype)"),
-+    .p.mime_type = "audio/SILK",
-+    .p.extensions = "silk",
-+     .p.audio_codec = AV_CODEC_ID_SILK,
-+    .p.video_codec = AV_CODEC_ID_NONE,
-+    .p.subtitle_codec = AV_CODEC_ID_NONE,
-+     .p.flags = AVFMT_NOTIMESTAMPS  | AVFMT_GENERIC_INDEX,
-+    .flags_internal = FF_OFMT_FLAG_MAX_ONE_OF_EACH  | FF_OFMT_FLAG_ONLY_DEFAULT_CODECS,
-+     .write_header = silk_write_header,
-+    .write_trailer = silk_write_trailer,
-+    .write_packet = silk_write_packet,
-+};
 \ No newline at end of file
 -- 
 2.47.0.windows.2
