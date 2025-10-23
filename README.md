@@ -1,2 +1,5 @@
 # FFmpeg Node Addon
 This project is a Node.js addon that provides bindings to the FFmpeg multimedia framework. It allows you to leverage FFmpeg's powerful capabilities directly from your Node.js applications.
+
+## Thanks
+[ntsilk](https://github.com/ntsilk/ntsilk)
