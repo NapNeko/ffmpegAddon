@@ -1,0 +1,46 @@
+From b5d83c5399b65cb300e028fdbd22210116f71475 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
+ <nanaeonn@outlook.com>
+Date: Thu, 23 Oct 2025 17:25:56 +0800
+Subject: [PATCH 5/5] Update codec_desc.c
+
+---
+ libavcodec/codec_desc.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/libavcodec/codec_desc.c b/libavcodec/codec_desc.c
+index 6cb171c990..fa9d7ecaaa 100644
+--- a/libavcodec/codec_desc.c
++++ b/libavcodec/codec_desc.c
+@@ -32,13 +32,6 @@
+ #define MT(...) (const char *const[]){ __VA_ARGS__, NULL }
+ 
+ static const AVCodecDescriptor codec_descriptors[] = {
+-    {
+-        .id        = AV_CODEC_ID_NTSILK_S16LE,
+-        .type      = AVMEDIA_TYPE_AUDIO,
+-        .name      = "ntsilk_s16le",
+-        .long_name = NULL_IF_CONFIG_SMALL("NTSilk (s16le)"),
+-        .props     = AV_CODEC_PROP_LOSSY,
+-    },
+     /* video codecs */
+     {
+         .id        = AV_CODEC_ID_MPEG1VIDEO,
+@@ -3440,7 +3433,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
+         .long_name = NULL_IF_CONFIG_SMALL("LC3 (Low Complexity Communication Codec)"),
+         .props     = AV_CODEC_PROP_INTRA_ONLY | AV_CODEC_PROP_LOSSY,
+     },
+-
++    {
++        .id        = AV_CODEC_ID_NTSILK_S16LE,
++        .type      = AVMEDIA_TYPE_AUDIO,
++        .name      = "ntsilk_s16le",
++        .long_name = NULL_IF_CONFIG_SMALL("NTSilk (s16le)"),
++        .props     = AV_CODEC_PROP_LOSSY,
++    },
+     /* subtitle codecs */
+     {
+         .id        = AV_CODEC_ID_DVD_SUBTITLE,
+-- 
+2.47.0.windows.2
+

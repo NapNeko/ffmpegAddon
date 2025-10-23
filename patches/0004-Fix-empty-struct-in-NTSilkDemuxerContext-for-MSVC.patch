@@ -2,7 +2,7 @@ From b7a547e68f166f871b9d1194fb78977f94841740 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=E6=89=8B=E7=93=9C=E4=B8=80=E5=8D=81=E9=9B=AA?=
  <nanaeonn@outlook.com>
 Date: Thu, 23 Oct 2025 17:10:23 +0800
-Subject: [PATCH 4/4] Fix empty struct in NTSilkDemuxerContext for MSVC
+Subject: [PATCH 4/5] Fix empty struct in NTSilkDemuxerContext for MSVC
 
 Added an int64_t pos field to NTSilkDemuxerContext to prevent compilation errors with MSVC, which does not allow empty structs.
 ---
