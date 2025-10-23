@@ -1,7 +1,8 @@
 // FFmpeg N-API addon (trimmed build expectations)
 #include <napi.h>
 #include <iostream>
-extern "C" {
+extern "C"
+{
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
@@ -14,249 +15,66 @@ extern "C" {
 
 using namespace Napi;
 
+Value ConvertToNTSilkTct(const CallbackInfo &info);
+
 // Supported targets (intended to be enabled in FFmpeg build):
 // - Containers (for cover & duration): avi, matroska (mkv), mov, mp4
 // - Audio formats: mp3, amr, m4a(aac), ogg(vorbis), wav (pcm), flac
 // The build script should enable only needed demuxers/decoders to keep size small.
 
 // getDuration(path) -> number (seconds)
-Value GetDuration(const CallbackInfo& info) {
+Value GetDuration(const CallbackInfo &info)
+{
     Env env = info.Env();
-    if (info.Length() < 1 || !info[0].IsString()) {
+    if (info.Length() < 1 || !info[0].IsString())
+    {
         TypeError::New(env, "Expected a file path string").ThrowAsJavaScriptException();
         return env.Null();
     }
     std::string path = info[0].As<String>().Utf8Value();
-    AVFormatContext* fmt = nullptr;
+    AVFormatContext *fmt = nullptr;
     int ret = avformat_open_input(&fmt, path.c_str(), nullptr, nullptr);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         char buf[256];
         av_strerror(ret, buf, sizeof(buf));
-        std::string msg = "Failed to open input: "; msg += buf;
+        std::string msg = "Failed to open input: ";
+        msg += buf;
         Error::New(env, msg).ThrowAsJavaScriptException();
         return env.Null();
     }
-    if ((ret = avformat_find_stream_info(fmt, nullptr)) < 0) {
+    if ((ret = avformat_find_stream_info(fmt, nullptr)) < 0)
+    {
         avformat_close_input(&fmt);
-        char buf[256]; av_strerror(ret, buf, sizeof(buf));
-        std::string msg = "Failed to find stream info: "; msg += buf;
+        char buf[256];
+        av_strerror(ret, buf, sizeof(buf));
+        std::string msg = "Failed to find stream info: ";
+        msg += buf;
         Error::New(env, msg).ThrowAsJavaScriptException();
         return env.Null();
     }
     double duration = 0.0;
-    if (fmt->duration != AV_NOPTS_VALUE) {
+    if (fmt->duration != AV_NOPTS_VALUE)
+    {
         duration = fmt->duration / (double)AV_TIME_BASE;
-    } else {
+    }
+    else
+    {
         // fallback: find longest stream duration
-        for (unsigned i = 0; i < fmt->nb_streams; ++i) {
-            AVStream* st = fmt->streams[i];
-            if (st->duration != AV_NOPTS_VALUE) {
+        for (unsigned i = 0; i < fmt->nb_streams; ++i)
+        {
+            AVStream *st = fmt->streams[i];
+            if (st->duration != AV_NOPTS_VALUE)
+            {
                 double d = (double)st->duration * av_q2d(st->time_base);
-                if (d > duration) duration = d;
+                if (d > duration)
+                    duration = d;
             }
         }
     }
     avformat_close_input(&fmt);
     return Number::New(env, duration);
 }
-
-// getVideoInfo(path) -> { width, height, duration, format, videoCodec, image: Buffer }
-// Extracts the first decoded video frame, container/video format info and duration.
-// Currently only packs the frame as a 24-bit BMP (manual packing, no image encoder required).
-Value GetVideoInfo(const CallbackInfo& info) {
-    Env env = info.Env();
-    if (info.Length() < 1 || !info[0].IsString()) {
-        TypeError::New(env, "Expected a file path string").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    std::string path = info[0].As<String>().Utf8Value();
-    std::string fmtStr = "bmp";
-    if (info.Length() >= 2 && info[1].IsString()) fmtStr = info[1].As<String>().Utf8Value();
-    // normalize
-    for (auto &c : fmtStr) c = (char)tolower((unsigned char)c);
-
-    // currently we only support BMP output (manual packing). Reject other formats early.
-    if (!(fmtStr == "bmp" || fmtStr == "bmp24")) {
-        TypeError::New(env, "Only 'bmp' / 'bmp24' output is supported").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    AVFormatContext* fmt = nullptr;
-    if (avformat_open_input(&fmt, path.c_str(), nullptr, nullptr) != 0) {
-        Error::New(env, "Failed to open input").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    if (avformat_find_stream_info(fmt, nullptr) < 0) {
-        avformat_close_input(&fmt);
-        Error::New(env, "Failed to find stream info").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    int vidStream = -1;
-    for (unsigned i = 0; i < fmt->nb_streams; ++i) {
-        if (fmt->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) { vidStream = i; break; }
-    }
-    if (vidStream < 0) { avformat_close_input(&fmt); Error::New(env, "No video stream").ThrowAsJavaScriptException(); return env.Null(); }
-    AVStream* st = fmt->streams[vidStream];
-    const AVCodec* dec = avcodec_find_decoder(st->codecpar->codec_id);
-    if (!dec) { avformat_close_input(&fmt); Error::New(env, "Decoder not found").ThrowAsJavaScriptException(); return env.Null(); }
-    AVCodecContext* c = avcodec_alloc_context3(dec);
-    avcodec_parameters_to_context(c, st->codecpar);
-    if (avcodec_open2(c, dec, nullptr) < 0) { avcodec_free_context(&c); avformat_close_input(&fmt); Error::New(env, "Failed to open codec").ThrowAsJavaScriptException(); return env.Null(); }
-
-    AVPacket* pkt = av_packet_alloc();
-    AVFrame* frame = av_frame_alloc();
-    AVFrame* rgb = av_frame_alloc();
-    struct SwsContext* sws = nullptr;
-    int ret;
-    while ((ret = av_read_frame(fmt, pkt)) >= 0) {
-        if (pkt->stream_index == vidStream) {
-            ret = avcodec_send_packet(c, pkt);
-            if (ret < 0) { av_packet_unref(pkt); continue; }
-            ret = avcodec_receive_frame(c, frame);
-            if (ret == 0) {
-                int w = frame->width, h = frame->height;
-                int rgbLinesize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, w, h, 1);
-                uint8_t* buffer = (uint8_t*)av_malloc(rgbLinesize);
-                if (!buffer) {
-                    // allocation failed
-                    av_packet_unref(pkt);
-                    break;
-                }
-                int afill = av_image_fill_arrays(rgb->data, rgb->linesize, buffer, AV_PIX_FMT_RGB24, w, h, 1);
-                if (afill < 0) {
-                    av_free(buffer);
-                    av_packet_unref(pkt);
-                    break;
-                }
-                sws = sws_getContext(w, h, (AVPixelFormat)frame->format, w, h, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
-                if (!sws) {
-                    av_free(buffer);
-                    av_packet_unref(pkt);
-                    break;
-                }
-                int scaled = sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize);
-                if (scaled <= 0) {
-                    av_free(buffer);
-                    sws_freeContext(sws);
-                    av_packet_unref(pkt);
-                    break;
-                }
-
-                // if user requested BMP, build BMP manually (simple, no encoder needed)
-                if (fmtStr == "bmp" || fmtStr == "bmp24") {
-                    int pad = (4 - (w * 3) % 4) % 4;
-                    uint32_t rowSize = w * 3 + pad;
-                    uint32_t dataSize = rowSize * h;
-                    uint32_t fileSize = 14 + 40 + dataSize;
-                    std::vector<uint8_t> bmp;
-                    bmp.resize(14 + 40 + dataSize);
-                    uint8_t* p = bmp.data();
-                    // BITMAPFILEHEADER
-                    p[0] = 'B'; p[1] = 'M';
-                    p[2] = (uint8_t)(fileSize & 0xFF);
-                    p[3] = (uint8_t)((fileSize>>8)&0xFF);
-                    p[4] = (uint8_t)((fileSize>>16)&0xFF);
-                    p[5] = (uint8_t)((fileSize>>24)&0xFF);
-                    p[6] = p[7] = p[8] = p[9] = 0;
-                    uint32_t offset = 14 + 40;
-                    p[10] = (uint8_t)(offset & 0xFF);
-                    p[11] = (uint8_t)((offset>>8)&0xFF);
-                    p[12] = (uint8_t)((offset>>16)&0xFF);
-                    p[13] = (uint8_t)((offset>>24)&0xFF);
-                    // BITMAPINFOHEADER
-                    uint8_t* q = p + 14;
-                    uint32_t biSize = 40;
-                    q[0] = (uint8_t)(biSize & 0xFF);
-                    q[1] = (uint8_t)((biSize>>8)&0xFF);
-                    q[2] = (uint8_t)((biSize>>16)&0xFF);
-                    q[3] = (uint8_t)((biSize>>24)&0xFF);
-                    // width
-                    q[4] = (uint8_t)(w & 0xFF);
-                    q[5] = (uint8_t)((w>>8)&0xFF);
-                    q[6] = (uint8_t)((w>>16)&0xFF);
-                    q[7] = (uint8_t)((w>>24)&0xFF);
-                    // height (positive for bottom-up)
-                    q[8] = (uint8_t)(h & 0xFF);
-                    q[9] = (uint8_t)((h>>8)&0xFF);
-                    q[10] = (uint8_t)((h>>16)&0xFF);
-                    q[11] = (uint8_t)((h>>24)&0xFF);
-                    // planes
-                    q[12] = 1; q[13] = 0;
-                    // bit count
-                    q[14] = 24; q[15] = 0;
-                    // compression
-                    q[16] = q[17] = q[18] = q[19] = 0;
-                    // image size
-                    q[20] = (uint8_t)(dataSize & 0xFF);
-                    q[21] = (uint8_t)((dataSize>>8)&0xFF);
-                    q[22] = (uint8_t)((dataSize>>16)&0xFF);
-                    q[23] = (uint8_t)((dataSize>>24)&0xFF);
-                    // xppm, yppm
-                    uint32_t ppm = 2835; // 72 DPI
-                    q[24] = (uint8_t)(ppm & 0xFF); q[25] = (uint8_t)((ppm>>8)&0xFF); q[26] = (uint8_t)((ppm>>16)&0xFF); q[27] = (uint8_t)((ppm>>24)&0xFF);
-                    q[28] = (uint8_t)(ppm & 0xFF); q[29] = (uint8_t)((ppm>>8)&0xFF); q[30] = (uint8_t)((ppm>>16)&0xFF); q[31] = (uint8_t)((ppm>>24)&0xFF);
-                    // clrUsed, clrImportant
-                    q[32]=q[33]=q[34]=q[35]=0; q[36]=q[37]=q[38]=q[39]=0;
-                    // pixel data: BMP is BGR bottom-up
-                    uint8_t* dst = p + offset;
-                    uint8_t* src = buffer; // rgb->data[0]
-                    for (int y = h - 1; y >= 0; --y) {
-                        uint8_t* rowDst = dst + (uint32_t)(h - 1 - y) * rowSize;
-                        uint8_t* rowSrc = src + (uint32_t)y * w * 3;
-                        for (int x = 0; x < w; ++x) {
-                            // src: R G B
-                            uint8_t r = rowSrc[x*3 + 0];
-                            uint8_t g = rowSrc[x*3 + 1];
-                            uint8_t b = rowSrc[x*3 + 2];
-                            rowDst[x*3 + 0] = b;
-                            rowDst[x*3 + 1] = g;
-                            rowDst[x*3 + 2] = r;
-                        }
-                        // padding
-                        for (uint32_t pz = 0; pz < (uint32_t)pad; ++pz) rowDst[w*3 + pz] = 0;
-                    }
-                    // prepare JS object
-                    Buffer<uint8_t> img = Buffer<uint8_t>::Copy(env, bmp.data(), bmp.size());
-                    Object obj = Object::New(env);
-                    obj.Set("width", Number::New(env, w));
-                    obj.Set("height", Number::New(env, h));
-                    double duration = 0.0;
-                    if (fmt->duration != AV_NOPTS_VALUE) duration = fmt->duration / (double)AV_TIME_BASE;
-                    else if (st->duration != AV_NOPTS_VALUE) duration = (double)st->duration * av_q2d(st->time_base);
-                    obj.Set("duration", Number::New(env, duration));
-                    const char* containerName = fmt->iformat && fmt->iformat->name ? fmt->iformat->name : "";
-                    obj.Set("format", String::New(env, containerName));
-                    const char* vcodec = avcodec_get_name(st->codecpar->codec_id);
-                    obj.Set("videoCodec", String::New(env, vcodec ? vcodec : ""));
-                    obj.Set("image", img);
-                    // cleanup
-                    av_free(buffer);
-                    sws_freeContext(sws);
-                    av_frame_free(&frame);
-                    av_frame_free(&rgb);
-                    av_packet_free(&pkt);
-                    avcodec_free_context(&c);
-                    avformat_close_input(&fmt);
-                    return obj;
-                }
-                // We only support BMP output now (no PNG/JPEG encoder dependency).
-                // The BMP packaging was already done above and returned the result.
-            }
-        }
-        av_packet_unref(pkt);
-    }
-    // cleanup on failure (we only reach here if no frame was decoded/returned)
-    av_frame_free(&frame);
-    av_frame_free(&rgb);
-    av_packet_free(&pkt);
-    avcodec_free_context(&c);
-    avformat_close_input(&fmt);
-    Error::New(env, "Failed to extract/encode frame").ThrowAsJavaScriptException();
-    return env.Null();
-}
-
-// decodeAudioToPCM(path) -> { pcm: Buffer, sampleRate, channels }
-// Decodes first audio stream to signed 16-bit little-endian PCM interleaved.
 Value DecodeAudioToPCM(const CallbackInfo& info) {
     Env env = info.Env();
     if (info.Length() < 1 || !info[0].IsString()) {
@@ -348,79 +166,695 @@ Value DecodeAudioToPCM(const CallbackInfo& info) {
     return res;
 }
 
-Object Init(Env env, Object exports) {
+// getVideoInfo(path) -> { width, height, duration, format, videoCodec, image: Buffer }
+// Extracts the first decoded video frame, container/video format info and duration.
+// Currently only packs the frame as a 24-bit BMP (manual packing, no image encoder required).
+Value GetVideoInfo(const CallbackInfo &info)
+{
+    Env env = info.Env();
+    if (info.Length() < 1 || !info[0].IsString())
+    {
+        TypeError::New(env, "Expected a file path string").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    std::string path = info[0].As<String>().Utf8Value();
+    std::string fmtStr = "bmp";
+    if (info.Length() >= 2 && info[1].IsString())
+        fmtStr = info[1].As<String>().Utf8Value();
+    // normalize
+    for (auto &c : fmtStr)
+        c = (char)tolower((unsigned char)c);
+
+    // currently we only support BMP output (manual packing). Reject other formats early.
+    if (!(fmtStr == "bmp" || fmtStr == "bmp24"))
+    {
+        TypeError::New(env, "Only 'bmp' / 'bmp24' output is supported").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    AVFormatContext *fmt = nullptr;
+    if (avformat_open_input(&fmt, path.c_str(), nullptr, nullptr) != 0)
+    {
+        Error::New(env, "Failed to open input").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    if (avformat_find_stream_info(fmt, nullptr) < 0)
+    {
+        avformat_close_input(&fmt);
+        Error::New(env, "Failed to find stream info").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    int vidStream = -1;
+    for (unsigned i = 0; i < fmt->nb_streams; ++i)
+    {
+        if (fmt->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+        {
+            vidStream = i;
+            break;
+        }
+    }
+    if (vidStream < 0)
+    {
+        avformat_close_input(&fmt);
+        Error::New(env, "No video stream").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    AVStream *st = fmt->streams[vidStream];
+    const AVCodec *dec = avcodec_find_decoder(st->codecpar->codec_id);
+    if (!dec)
+    {
+        avformat_close_input(&fmt);
+        Error::New(env, "Decoder not found").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    AVCodecContext *c = avcodec_alloc_context3(dec);
+    avcodec_parameters_to_context(c, st->codecpar);
+    if (avcodec_open2(c, dec, nullptr) < 0)
+    {
+        avcodec_free_context(&c);
+        avformat_close_input(&fmt);
+        Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    AVPacket *pkt = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+    AVFrame *rgb = av_frame_alloc();
+    struct SwsContext *sws = nullptr;
+    int ret;
+    while ((ret = av_read_frame(fmt, pkt)) >= 0)
+    {
+        if (pkt->stream_index == vidStream)
+        {
+            ret = avcodec_send_packet(c, pkt);
+            if (ret < 0)
+            {
+                av_packet_unref(pkt);
+                continue;
+            }
+            ret = avcodec_receive_frame(c, frame);
+            if (ret == 0)
+            {
+                int w = frame->width, h = frame->height;
+                int rgbLinesize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, w, h, 1);
+                uint8_t *buffer = (uint8_t *)av_malloc(rgbLinesize);
+                if (!buffer)
+                {
+                    // allocation failed
+                    av_packet_unref(pkt);
+                    break;
+                }
+                int afill = av_image_fill_arrays(rgb->data, rgb->linesize, buffer, AV_PIX_FMT_RGB24, w, h, 1);
+                if (afill < 0)
+                {
+                    av_free(buffer);
+                    av_packet_unref(pkt);
+                    break;
+                }
+                sws = sws_getContext(w, h, (AVPixelFormat)frame->format, w, h, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+                if (!sws)
+                {
+                    av_free(buffer);
+                    av_packet_unref(pkt);
+                    break;
+                }
+                int scaled = sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize);
+                if (scaled <= 0)
+                {
+                    av_free(buffer);
+                    sws_freeContext(sws);
+                    av_packet_unref(pkt);
+                    break;
+                }
+
+                // if user requested BMP, build BMP manually (simple, no encoder needed)
+                if (fmtStr == "bmp" || fmtStr == "bmp24")
+                {
+                    int pad = (4 - (w * 3) % 4) % 4;
+                    uint32_t rowSize = w * 3 + pad;
+                    uint32_t dataSize = rowSize * h;
+                    uint32_t fileSize = 14 + 40 + dataSize;
+                    std::vector<uint8_t> bmp;
+                    bmp.resize(14 + 40 + dataSize);
+                    uint8_t *p = bmp.data();
+                    // BITMAPFILEHEADER
+                    p[0] = 'B';
+                    p[1] = 'M';
+                    p[2] = (uint8_t)(fileSize & 0xFF);
+                    p[3] = (uint8_t)((fileSize >> 8) & 0xFF);
+                    p[4] = (uint8_t)((fileSize >> 16) & 0xFF);
+                    p[5] = (uint8_t)((fileSize >> 24) & 0xFF);
+                    p[6] = p[7] = p[8] = p[9] = 0;
+                    uint32_t offset = 14 + 40;
+                    p[10] = (uint8_t)(offset & 0xFF);
+                    p[11] = (uint8_t)((offset >> 8) & 0xFF);
+                    p[12] = (uint8_t)((offset >> 16) & 0xFF);
+                    p[13] = (uint8_t)((offset >> 24) & 0xFF);
+                    // BITMAPINFOHEADER
+                    uint8_t *q = p + 14;
+                    uint32_t biSize = 40;
+                    q[0] = (uint8_t)(biSize & 0xFF);
+                    q[1] = (uint8_t)((biSize >> 8) & 0xFF);
+                    q[2] = (uint8_t)((biSize >> 16) & 0xFF);
+                    q[3] = (uint8_t)((biSize >> 24) & 0xFF);
+                    // width
+                    q[4] = (uint8_t)(w & 0xFF);
+                    q[5] = (uint8_t)((w >> 8) & 0xFF);
+                    q[6] = (uint8_t)((w >> 16) & 0xFF);
+                    q[7] = (uint8_t)((w >> 24) & 0xFF);
+                    // height (positive for bottom-up)
+                    q[8] = (uint8_t)(h & 0xFF);
+                    q[9] = (uint8_t)((h >> 8) & 0xFF);
+                    q[10] = (uint8_t)((h >> 16) & 0xFF);
+                    q[11] = (uint8_t)((h >> 24) & 0xFF);
+                    // planes
+                    q[12] = 1;
+                    q[13] = 0;
+                    // bit count
+                    q[14] = 24;
+                    q[15] = 0;
+                    // compression
+                    q[16] = q[17] = q[18] = q[19] = 0;
+                    // image size
+                    q[20] = (uint8_t)(dataSize & 0xFF);
+                    q[21] = (uint8_t)((dataSize >> 8) & 0xFF);
+                    q[22] = (uint8_t)((dataSize >> 16) & 0xFF);
+                    q[23] = (uint8_t)((dataSize >> 24) & 0xFF);
+                    // xppm, yppm
+                    uint32_t ppm = 2835; // 72 DPI
+                    q[24] = (uint8_t)(ppm & 0xFF);
+                    q[25] = (uint8_t)((ppm >> 8) & 0xFF);
+                    q[26] = (uint8_t)((ppm >> 16) & 0xFF);
+                    q[27] = (uint8_t)((ppm >> 24) & 0xFF);
+                    q[28] = (uint8_t)(ppm & 0xFF);
+                    q[29] = (uint8_t)((ppm >> 8) & 0xFF);
+                    q[30] = (uint8_t)((ppm >> 16) & 0xFF);
+                    q[31] = (uint8_t)((ppm >> 24) & 0xFF);
+                    // clrUsed, clrImportant
+                    q[32] = q[33] = q[34] = q[35] = 0;
+                    q[36] = q[37] = q[38] = q[39] = 0;
+                    // pixel data: BMP is BGR bottom-up
+                    uint8_t *dst = p + offset;
+                    uint8_t *src = buffer; // rgb->data[0]
+                    for (int y = h - 1; y >= 0; --y)
+                    {
+                        uint8_t *rowDst = dst + (uint32_t)(h - 1 - y) * rowSize;
+                        uint8_t *rowSrc = src + (uint32_t)y * w * 3;
+                        for (int x = 0; x < w; ++x)
+                        {
+                            // src: R G B
+                            uint8_t r = rowSrc[x * 3 + 0];
+                            uint8_t g = rowSrc[x * 3 + 1];
+                            uint8_t b = rowSrc[x * 3 + 2];
+                            rowDst[x * 3 + 0] = b;
+                            rowDst[x * 3 + 1] = g;
+                            rowDst[x * 3 + 2] = r;
+                        }
+                        // padding
+                        for (uint32_t pz = 0; pz < (uint32_t)pad; ++pz)
+                            rowDst[w * 3 + pz] = 0;
+                    }
+                    // prepare JS object
+                    Buffer<uint8_t> img = Buffer<uint8_t>::Copy(env, bmp.data(), bmp.size());
+                    Object obj = Object::New(env);
+                    obj.Set("width", Number::New(env, w));
+                    obj.Set("height", Number::New(env, h));
+                    double duration = 0.0;
+                    if (fmt->duration != AV_NOPTS_VALUE)
+                        duration = fmt->duration / (double)AV_TIME_BASE;
+                    else if (st->duration != AV_NOPTS_VALUE)
+                        duration = (double)st->duration * av_q2d(st->time_base);
+                    obj.Set("duration", Number::New(env, duration));
+                    const char *containerName = fmt->iformat && fmt->iformat->name ? fmt->iformat->name : "";
+                    obj.Set("format", String::New(env, containerName));
+                    const char *vcodec = avcodec_get_name(st->codecpar->codec_id);
+                    obj.Set("videoCodec", String::New(env, vcodec ? vcodec : ""));
+                    obj.Set("image", img);
+                    // cleanup
+                    av_free(buffer);
+                    sws_freeContext(sws);
+                    av_frame_free(&frame);
+                    av_frame_free(&rgb);
+                    av_packet_free(&pkt);
+                    avcodec_free_context(&c);
+                    avformat_close_input(&fmt);
+                    return obj;
+                }
+                // We only support BMP output now (no PNG/JPEG encoder dependency).
+                // The BMP packaging was already done above and returned the result.
+            }
+        }
+        av_packet_unref(pkt);
+    }
+    // cleanup on failure (we only reach here if no frame was decoded/returned)
+    av_frame_free(&frame);
+    av_frame_free(&rgb);
+    av_packet_free(&pkt);
+    avcodec_free_context(&c);
+    avformat_close_input(&fmt);
+    Error::New(env, "Failed to extract/encode frame").ThrowAsJavaScriptException();
+    return env.Null();
+}
+
+Object Init(Env env, Object exports)
+{
     exports.Set("getDuration", Function::New(env, GetDuration));
     exports.Set("getVideoInfo", Function::New(env, GetVideoInfo));
+    exports.Set("convertToNTSilkTct", Function::New(env, ConvertToNTSilkTct));
     exports.Set("decodeAudioToPCM", Function::New(env, DecodeAudioToPCM));
-    exports.Set("encodePCMToWAV", Function::New(env, [](const CallbackInfo& info)->Value{
-        Env env = info.Env();
-        Buffer<uint8_t> pcmBuf;
-        int sampleRate = 0; int channels = 0;
-        if (info.Length() == 1 && info[0].IsObject()) {
-            Object o = info[0].As<Object>();
-            if (!o.Has("pcm") || !o.Get("pcm").IsBuffer()) { TypeError::New(env, "Object must have pcm Buffer").ThrowAsJavaScriptException(); return env.Null(); }
-            pcmBuf = o.Get("pcm").As<Buffer<uint8_t>>();
-            if (o.Has("sampleRate") && o.Get("sampleRate").IsNumber()) sampleRate = o.Get("sampleRate").As<Number>().Int32Value();
-            if (o.Has("channels") && o.Get("channels").IsNumber()) channels = o.Get("channels").As<Number>().Int32Value();
-        } else if (info.Length() >= 3 && info[0].IsBuffer() && info[1].IsNumber() && info[2].IsNumber()) {
-            pcmBuf = info[0].As<Buffer<uint8_t>>();
-            sampleRate = info[1].As<Number>().Int32Value();
-            channels = info[2].As<Number>().Int32Value();
-        } else { TypeError::New(env, "Expected (pcmBuffer, sampleRate, channels) or {pcm, sampleRate, channels}").ThrowAsJavaScriptException(); return env.Null(); }
-        if (sampleRate <= 0 || channels <= 0) { TypeError::New(env, "Invalid sampleRate or channels").ThrowAsJavaScriptException(); return env.Null(); }
-        size_t pcmSize = pcmBuf.Length();
-        // WAV header (RIFF) 44 bytes for PCM 16
-        uint32_t byteRate = sampleRate * channels * 2; // 16-bit
-        uint16_t blockAlign = channels * 2;
-        uint32_t dataSize = (uint32_t)pcmSize;
-        uint32_t riffSize = 36 + dataSize;
-        std::vector<uint8_t> out;
-        out.resize(44 + dataSize);
-        // RIFF
-        memcpy(out.data()+0, "RIFF", 4);
-        out[4] = (uint8_t)(riffSize & 0xFF);
-        out[5] = (uint8_t)((riffSize>>8)&0xFF);
-        out[6] = (uint8_t)((riffSize>>16)&0xFF);
-        out[7] = (uint8_t)((riffSize>>24)&0xFF);
-        memcpy(out.data()+8, "WAVE", 4);
-        // fmt chunk
-        memcpy(out.data()+12, "fmt ", 4);
-        uint32_t fmtLen = 16;
-        out[16] = (uint8_t)(fmtLen & 0xFF);
-        out[17] = (uint8_t)((fmtLen>>8)&0xFF);
-        out[18] = (uint8_t)((fmtLen>>16)&0xFF);
-        out[19] = (uint8_t)((fmtLen>>24)&0xFF);
-        // audio format 1 = PCM
-        out[20] = 1; out[21] = 0;
-        // num channels
-        out[22] = (uint8_t)(channels & 0xFF); out[23] = (uint8_t)((channels>>8)&0xFF);
-        // sample rate
-        out[24] = (uint8_t)(sampleRate & 0xFF);
-        out[25] = (uint8_t)((sampleRate>>8)&0xFF);
-        out[26] = (uint8_t)((sampleRate>>16)&0xFF);
-        out[27] = (uint8_t)((sampleRate>>24)&0xFF);
-        // byte rate
-        out[28] = (uint8_t)(byteRate & 0xFF);
-        out[29] = (uint8_t)((byteRate>>8)&0xFF);
-        out[30] = (uint8_t)((byteRate>>16)&0xFF);
-        out[31] = (uint8_t)((byteRate>>24)&0xFF);
-        // block align
-        out[32] = (uint8_t)(blockAlign & 0xFF);
-        out[33] = (uint8_t)((blockAlign>>8)&0xFF);
-        // bits per sample
-        out[34] = 16; out[35] = 0;
-        // data chunk
-        memcpy(out.data()+36, "data", 4);
-        out[40] = (uint8_t)(dataSize & 0xFF);
-        out[41] = (uint8_t)((dataSize>>8)&0xFF);
-        out[42] = (uint8_t)((dataSize>>16)&0xFF);
-        out[43] = (uint8_t)((dataSize>>24)&0xFF);
-        // copy pcm
-        memcpy(out.data()+44, pcmBuf.Data(), dataSize);
-        Buffer<uint8_t> res = Buffer<uint8_t>::Copy(env, out.data(), out.size());
-        return res;
-    }));
     return exports;
+}
+// convertToNTSilkTct(inputPath, outputPath) -> void
+Value ConvertToNTSilkTct(const CallbackInfo &info)
+{
+    Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString())
+    {
+        TypeError::New(env, "Expected input and output file path strings").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    std::string inPath = info[0].As<String>().Utf8Value();
+    std::string outPath = info[1].As<String>().Utf8Value();
+
+    // 打开输入文件
+    AVFormatContext *inFmt = nullptr;
+    if (avformat_open_input(&inFmt, inPath.c_str(), nullptr, nullptr) < 0)
+    {
+        Error::New(env, "Failed to open input").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    if (avformat_find_stream_info(inFmt, nullptr) < 0)
+    {
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to find stream info").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 只保留音频流,丢弃其它所有流
+    for (unsigned i = 0; i < inFmt->nb_streams; ++i)
+    {
+        if (inFmt->streams[i]->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
+        {
+            inFmt->streams[i]->discard = AVDISCARD_ALL;
+        }
+    }
+
+    // 查找音频流
+    int audioStream = -1;
+    for (unsigned i = 0; i < inFmt->nb_streams; ++i)
+    {
+        if (inFmt->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+        {
+            audioStream = i;
+            break;
+        }
+    }
+    if (audioStream < 0)
+    {
+        avformat_close_input(&inFmt);
+        Error::New(env, "No audio stream").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 初始化解码器
+    AVStream *inSt = inFmt->streams[audioStream];
+    const AVCodec *dec = avcodec_find_decoder(inSt->codecpar->codec_id);
+    if (!dec)
+    {
+        avformat_close_input(&inFmt);
+        Error::New(env, "Decoder not found").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    AVCodecContext *decCtx = avcodec_alloc_context3(dec);
+    avcodec_parameters_to_context(decCtx, inSt->codecpar);
+    if (avcodec_open2(decCtx, dec, nullptr) < 0)
+    {
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to open decoder").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 确定目标采样率(选择最接近的支持采样率)
+    static const int supported_rates[] = {48000, 44100, 32000, 24000, 16000, 12000, 8000};
+    int input_rate = decCtx->sample_rate;
+    int target_rate = 24000; // 默认24kHz
+    
+    // 如果输入采样率在支持列表中,直接使用
+    for (int r : supported_rates)
+    {
+        if (input_rate == r)
+        {
+            target_rate = input_rate;
+            break;
+        }
+    }
+    // 否则选择最接近的支持采样率
+    if (target_rate != input_rate)
+    {
+        int min_diff = abs(input_rate - supported_rates[0]);
+        target_rate = supported_rates[0];
+        for (int r : supported_rates)
+        {
+            int diff = abs(input_rate - r);
+            if (diff < min_diff)
+            {
+                min_diff = diff;
+                target_rate = r;
+            }
+        }
+    }
+
+    // 初始化重采样器(统一转换为单声道 S16 目标采样率)
+    SwrContext *swr = swr_alloc();
+    AVChannelLayout in_ch_layout = decCtx->ch_layout;
+    AVChannelLayout out_ch_layout;
+    av_channel_layout_default(&out_ch_layout, 1); // 单声道
+
+    if (swr_alloc_set_opts2(&swr,
+                            &out_ch_layout, AV_SAMPLE_FMT_S16, target_rate,
+                            &in_ch_layout, decCtx->sample_fmt, decCtx->sample_rate,
+                            0, nullptr) < 0 || swr_init(swr) < 0)
+    {
+        if (swr)
+            swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to init resampler").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 初始化编码器
+    const AVCodec *enc = avcodec_find_encoder(AV_CODEC_ID_NTSILK_S16LE);
+    if (!enc)
+    {
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Encoder (AV_CODEC_ID_NTSILK_S16LE) not found").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    AVCodecContext *encCtx = avcodec_alloc_context3(enc);
+    encCtx->sample_rate = target_rate;
+    encCtx->sample_fmt = AV_SAMPLE_FMT_S16;
+    av_channel_layout_default(&encCtx->ch_layout, 1); // 单声道
+    encCtx->time_base = {1, target_rate};
+
+    if (avcodec_open2(encCtx, enc, nullptr) < 0)
+    {
+        avcodec_free_context(&encCtx);
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to open encoder").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 创建输出文件
+    AVFormatContext *outFmt = nullptr;
+    if (avformat_alloc_output_context2(&outFmt, nullptr, "ntsilk_s16le", outPath.c_str()) < 0 || !outFmt)
+    {
+        avcodec_free_context(&encCtx);
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to alloc output context").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 创建输出流
+    AVStream *outSt = avformat_new_stream(outFmt, nullptr);
+    if (!outSt)
+    {
+        avformat_free_context(outFmt);
+        avcodec_free_context(&encCtx);
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to create output stream").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    outSt->time_base = encCtx->time_base;
+    if (avcodec_parameters_from_context(outSt->codecpar, encCtx) < 0)
+    {
+        avformat_free_context(outFmt);
+        avcodec_free_context(&encCtx);
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to copy encoder params").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 打开输出文件
+    if (!(outFmt->oformat->flags & AVFMT_NOFILE))
+    {
+        if (avio_open(&outFmt->pb, outPath.c_str(), AVIO_FLAG_WRITE) < 0)
+        {
+            avformat_free_context(outFmt);
+            avcodec_free_context(&encCtx);
+            swr_free(&swr);
+            avcodec_free_context(&decCtx);
+            avformat_close_input(&inFmt);
+            Error::New(env, "Failed to open output file").ThrowAsJavaScriptException();
+            return env.Null();
+        }
+    }
+
+    if (avformat_write_header(outFmt, nullptr) < 0)
+    {
+        if (!(outFmt->oformat->flags & AVFMT_NOFILE))
+            avio_closep(&outFmt->pb);
+        avformat_free_context(outFmt);
+        avcodec_free_context(&encCtx);
+        swr_free(&swr);
+        avcodec_free_context(&decCtx);
+        avformat_close_input(&inFmt);
+        Error::New(env, "Failed to write header").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // 准备帧缓冲
+    AVPacket *pkt = av_packet_alloc();
+    AVFrame *decFrame = av_frame_alloc();
+    AVFrame *resampledFrame = av_frame_alloc();
+    
+    // 编码器帧大小
+    int frame_size = encCtx->frame_size > 0 ? encCtx->frame_size : 480;
+    
+    // 重采样输出缓冲区(用于累积采样直到够一个编码帧)
+    std::vector<int16_t> sample_buffer;
+    int64_t next_pts = 0;
+
+    // 解码和重采样循环
+    int ret;
+    while ((ret = av_read_frame(inFmt, pkt)) >= 0)
+    {
+        if (pkt->stream_index != audioStream)
+        {
+            av_packet_unref(pkt);
+            continue;
+        }
+
+        ret = avcodec_send_packet(decCtx, pkt);
+        av_packet_unref(pkt);
+        if (ret < 0)
+            continue;
+
+        while (avcodec_receive_frame(decCtx, decFrame) == 0)
+        {
+            // 计算重采样后的采样数
+            int64_t delay = swr_get_delay(swr, decCtx->sample_rate);
+            int64_t out_count = av_rescale_rnd(delay + decFrame->nb_samples, target_rate, decCtx->sample_rate, AV_ROUND_UP);
+            
+            // 分配重采样输出缓冲
+            uint8_t *resampled_data = nullptr;
+            int resampled_linesize = 0;
+            av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0);
+            
+            // 执行重采样
+            int converted_samples = swr_convert(swr, &resampled_data, out_count,
+                                                (const uint8_t **)decFrame->data, decFrame->nb_samples);
+            
+            if (converted_samples > 0)
+            {
+                // 将重采样后的数据追加到缓冲区
+                int16_t *samples = (int16_t *)resampled_data;
+                sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+            }
+            
+            av_freep(&resampled_data);
+            av_frame_unref(decFrame);
+
+            // 当缓冲区有足够的采样时,送入编码器
+            while ((int)sample_buffer.size() >= frame_size)
+            {
+                // 准备编码帧
+                resampledFrame->nb_samples = frame_size;
+                resampledFrame->format = AV_SAMPLE_FMT_S16;
+                resampledFrame->sample_rate = target_rate;
+                av_channel_layout_default(&resampledFrame->ch_layout, 1);
+                av_frame_get_buffer(resampledFrame, 0);
+                
+                memcpy(resampledFrame->data[0], sample_buffer.data(), frame_size * sizeof(int16_t));
+                resampledFrame->pts = next_pts;
+                next_pts += frame_size;
+
+                // 送入编码器
+                ret = avcodec_send_frame(encCtx, resampledFrame);
+                av_frame_unref(resampledFrame);
+                
+                if (ret == 0)
+                {
+                    AVPacket *outPkt = av_packet_alloc();
+                    while (avcodec_receive_packet(encCtx, outPkt) == 0)
+                    {
+                        outPkt->stream_index = 0;
+                        av_packet_rescale_ts(outPkt, encCtx->time_base, outSt->time_base);
+                        av_interleaved_write_frame(outFmt, outPkt);
+                        av_packet_unref(outPkt);
+                    }
+                    av_packet_free(&outPkt);
+                }
+
+                // 从缓冲区移除已编码的采样
+                sample_buffer.erase(sample_buffer.begin(), sample_buffer.begin() + frame_size);
+            }
+        }
+    }
+
+    // Flush 解码器
+    avcodec_send_packet(decCtx, nullptr);
+    while (avcodec_receive_frame(decCtx, decFrame) == 0)
+    {
+        int64_t delay = swr_get_delay(swr, decCtx->sample_rate);
+        int64_t out_count = av_rescale_rnd(delay + decFrame->nb_samples, target_rate, decCtx->sample_rate, AV_ROUND_UP);
+        
+        uint8_t *resampled_data = nullptr;
+        int resampled_linesize = 0;
+        av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0);
+        
+        int converted_samples = swr_convert(swr, &resampled_data, out_count,
+                                            (const uint8_t **)decFrame->data, decFrame->nb_samples);
+        
+        if (converted_samples > 0)
+        {
+            int16_t *samples = (int16_t *)resampled_data;
+            sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+        }
+        
+        av_freep(&resampled_data);
+        av_frame_unref(decFrame);
+
+        while ((int)sample_buffer.size() >= frame_size)
+        {
+            resampledFrame->nb_samples = frame_size;
+            resampledFrame->format = AV_SAMPLE_FMT_S16;
+            resampledFrame->sample_rate = target_rate;
+            av_channel_layout_default(&resampledFrame->ch_layout, 1);
+            av_frame_get_buffer(resampledFrame, 0);
+            
+            memcpy(resampledFrame->data[0], sample_buffer.data(), frame_size * sizeof(int16_t));
+            resampledFrame->pts = next_pts;
+            next_pts += frame_size;
+
+            ret = avcodec_send_frame(encCtx, resampledFrame);
+            av_frame_unref(resampledFrame);
+            
+            if (ret == 0)
+            {
+                AVPacket *outPkt = av_packet_alloc();
+                while (avcodec_receive_packet(encCtx, outPkt) == 0)
+                {
+                    outPkt->stream_index = 0;
+                    av_packet_rescale_ts(outPkt, encCtx->time_base, outSt->time_base);
+                    av_interleaved_write_frame(outFmt, outPkt);
+                    av_packet_unref(outPkt);
+                }
+                av_packet_free(&outPkt);
+            }
+
+            sample_buffer.erase(sample_buffer.begin(), sample_buffer.begin() + frame_size);
+        }
+    }
+
+    // Flush 重采样器
+    uint8_t *resampled_data = nullptr;
+    int resampled_linesize = 0;
+    int max_out_samples = frame_size * 2;
+    av_samples_alloc(&resampled_data, &resampled_linesize, 1, max_out_samples, AV_SAMPLE_FMT_S16, 0);
+    
+    int converted_samples = swr_convert(swr, &resampled_data, max_out_samples, nullptr, 0);
+    if (converted_samples > 0)
+    {
+        int16_t *samples = (int16_t *)resampled_data;
+        sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+    }
+    av_freep(&resampled_data);
+
+    // 处理剩余的采样(包括不足一帧的部分)
+    while (!sample_buffer.empty())
+    {
+        int samples_to_encode = std::min((int)sample_buffer.size(), frame_size);
+        
+        resampledFrame->nb_samples = samples_to_encode;
+        resampledFrame->format = AV_SAMPLE_FMT_S16;
+        resampledFrame->sample_rate = target_rate;
+        av_channel_layout_default(&resampledFrame->ch_layout, 1);
+        av_frame_get_buffer(resampledFrame, 0);
+        
+        memcpy(resampledFrame->data[0], sample_buffer.data(), samples_to_encode * sizeof(int16_t));
+        resampledFrame->pts = next_pts;
+        next_pts += samples_to_encode;
+
+        ret = avcodec_send_frame(encCtx, resampledFrame);
+        av_frame_unref(resampledFrame);
+        
+        if (ret == 0)
+        {
+            AVPacket *outPkt = av_packet_alloc();
+            while (avcodec_receive_packet(encCtx, outPkt) == 0)
+            {
+                outPkt->stream_index = 0;
+                av_packet_rescale_ts(outPkt, encCtx->time_base, outSt->time_base);
+                av_interleaved_write_frame(outFmt, outPkt);
+                av_packet_unref(outPkt);
+            }
+            av_packet_free(&outPkt);
+        }
+
+        sample_buffer.erase(sample_buffer.begin(), sample_buffer.begin() + samples_to_encode);
+    }
+
+    // Flush 编码器
+    avcodec_send_frame(encCtx, nullptr);
+    AVPacket *outPkt = av_packet_alloc();
+    while (avcodec_receive_packet(encCtx, outPkt) == 0)
+    {
+        outPkt->stream_index = 0;
+        av_packet_rescale_ts(outPkt, encCtx->time_base, outSt->time_base);
+        av_interleaved_write_frame(outFmt, outPkt);
+        av_packet_unref(outPkt);
+    }
+    av_packet_free(&outPkt);
+
+    // 写入文件尾并清理
+    av_write_trailer(outFmt);
+    if (!(outFmt->oformat->flags & AVFMT_NOFILE))
+        avio_closep(&outFmt->pb);
+
+    av_frame_free(&decFrame);
+    av_frame_free(&resampledFrame);
+    av_packet_free(&pkt);
+    swr_free(&swr);
+    avcodec_free_context(&encCtx);
+    avformat_free_context(outFmt);
+    avcodec_free_context(&decCtx);
+    avformat_close_input(&inFmt);
+
+    return env.Undefined();
 }
 
 NODE_API_MODULE(ffmpegAddon, Init)
