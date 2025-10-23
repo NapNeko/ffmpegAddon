@@ -32,13 +32,27 @@ else()
 endif()
 
 # 源文件与 Node Addon 定义
-file(GLOB SRC "src/*.cpp" "src/*.h")
+
+
+# 添加 silk-v3-decoder silk/interface 和 silk/src 源文件
+set(SILK_INTERFACE_DIR "${CMAKE_SOURCE_DIR}/silk-v3-decoder/silk/interface")
+set(SILK_SRC_DIR "${CMAKE_SOURCE_DIR}/silk-v3-decoder/silk/src")
+file(GLOB SILK_SRC_FILES
+    "${SILK_INTERFACE_DIR}/*.c" "${SILK_INTERFACE_DIR}/*.S"
+    "${SILK_SRC_DIR}/*.c" "${SILK_SRC_DIR}/*.S"
+)
+file(GLOB SRC_C "src/*.c" "src/*.S")
+file(GLOB SRC_CPP "src/*.cpp")
+list(APPEND SRC ${SRC_C} ${SRC_CPP} ${SILK_SRC_FILES})
 add_library(${PROJECT_NAME} SHARED ${SRC} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_JS_INC}  # cmake-js 自动提供 Node/N-API 头文件路径
+    ${SILK_INTERFACE_DIR}
+    ${SILK_SRC_DIR}
 )
 
 # 自动检测 FFmpeg 库 (.a / .lib)

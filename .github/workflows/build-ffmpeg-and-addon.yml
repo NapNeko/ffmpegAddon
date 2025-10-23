@@ -27,6 +27,11 @@ jobs:
           rm -rf ffmpeg_src
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
 
+      - name: Clone silk-v3-decoder
+        run: |
+          rm -rf silk-v3-decoder
+          git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+
       - name: Apply repository patches to ffmpeg_src
         run: |
           set -euo pipefail
@@ -101,6 +106,11 @@ jobs:
         run: |
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+
+      - name: Clone silk-v3-decoder
+        run: |
+          if (Test-Path silk-v3-decoder) { Remove-Item -Recurse -Force silk-v3-decoder }
+          git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
 
       - name: Apply repository patches to ffmpeg_src (Windows/msys2)
         env:
@@ -179,6 +189,11 @@ jobs:
         run: |
           rm -rf ffmpeg_src
           git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+
+      - name: Clone silk-v3-decoder
+        run: |
+          rm -rf silk-v3-decoder
+          git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
 
       - name: Apply repository patches to ffmpeg_src on macOS
         run: |

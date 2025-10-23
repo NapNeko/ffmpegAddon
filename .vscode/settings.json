@@ -3,6 +3,8 @@
         "iostream": "cpp",
         "w64.h": "c",
         "silk_adapter.h": "c",
-        "ios": "c"
+        "ios": "c",
+        "skp_silk_sdk_api.h": "c",
+        "skp_silk_typedef.h": "c"
     }
 }
