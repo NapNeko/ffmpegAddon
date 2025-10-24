@@ -8,16 +8,6 @@ const ntsilk_test = path.join(__dirname, 'test.ntsilk');
 const ntsilk_out_test = path.join(__dirname, 'test_out.ntsilk');
 const wav_out = path.join(__dirname, 'test_out.wav');
 
-console.log('Test Video MP4:', ffmpeg.getVideoInfo(mp4_test));
-console.log('Test Music MP3:', ffmpeg.getDuration(mp3_test));
-console.log('Test Music MP3:', ffmpeg.getDuration(ntsilk_test));
-console.log('Test Music SILK convert:', ffmpeg.convertToNTSilkTct(mp3_test, ntsilk_out_test));
-console.log('Test Music MP3:', ffmpeg.getDuration(ntsilk_out_test));
-
-// decode to PCM
-const decoded = ffmpeg.decodeAudioToPCM(ntsilk_test);
-console.log('Decoded SILK meta:', { sampleRate: decoded.sampleRate, channels: decoded.channels, pcmLength: decoded.pcm.length });
-
 // Helper: create WAV header and concat with PCM buffer (16-bit PCM)
 function createWavBuffer(pcmBuffer, sampleRate, channels, bitsPerSample = 16) {
   const byteRate = sampleRate * channels * bitsPerSample / 8;
@@ -51,14 +41,79 @@ function createWavBuffer(pcmBuffer, sampleRate, channels, bitsPerSample = 16) {
   return buffer;
 }
 
-// Validate and write WAV
-if (decoded && Buffer.isBuffer(decoded.pcm)) {
-  // 如果 decode 返回的 PCM 不是 16-bit，你需要先将其转换为 Int16. 下面假设已经是 Int16LE bytes。
-  const bitsPerSample = 16;
-  const wavBuffer = createWavBuffer(decoded.pcm, decoded.sampleRate || 24000, decoded.channels || 1, bitsPerSample);
+// 使用异步函数进行测试
+async function runTests() {
+  try {
+    console.log('=== 开始异步测试 ===\n');
 
-  fs.writeFileSync(wav_out, wavBuffer);
-  console.log('WAV written to', wav_out);
-} else {
-  console.error('decodeAudioToPCM did not return expected object with pcm Buffer');
+    // 测试 getVideoInfo (异步)
+    console.log('测试 MP4 视频信息...');
+    const videoInfo = await ffmpeg.getVideoInfo(mp4_test);
+    console.log('视频信息:', {
+      width: videoInfo.width,
+      height: videoInfo.height,
+      duration: videoInfo.duration,
+      format: videoInfo.format,
+      videoCodec: videoInfo.videoCodec,
+      imageSize: videoInfo.image.length
+    });
+    console.log();
+
+    // 测试 getDuration (异步) - MP3
+    console.log('测试 MP3 音频时长...');
+    const mp3Duration = await ffmpeg.getDuration(mp3_test);
+    console.log('MP3 时长:', mp3Duration, '秒');
+    console.log();
+
+    // 测试 getDuration (异步) - NTSILK
+    console.log('测试 NTSILK 音频时长...');
+    const ntsilkDuration = await ffmpeg.getDuration(ntsilk_test);
+    console.log('NTSILK 时长:', ntsilkDuration, '秒');
+    console.log();
+
+    // 测试 convertToNTSilkTct (异步)
+    console.log('测试 MP3 转 NTSILK...');
+    await ffmpeg.convertToNTSilkTct(mp3_test, ntsilk_out_test);
+    console.log('转换成功！');
+    console.log();
+
+    // 测试转换后的文件时长
+    console.log('测试转换后的 NTSILK 时长...');
+    const convertedDuration = await ffmpeg.getDuration(ntsilk_out_test);
+    console.log('转换后 NTSILK 时长:', convertedDuration, '秒');
+    console.log();
+
+    // 测试 decodeAudioToPCM (异步)
+    console.log('测试 NTSILK 解码到 PCM...');
+    const decoded = await ffmpeg.decodeAudioToPCM(ntsilk_test);
+    console.log('解码 SILK 元数据:', { 
+      sampleRate: decoded.sampleRate, 
+      channels: decoded.channels, 
+      pcmLength: decoded.pcm.length 
+    });
+
+    // 验证并写入 WAV
+    if (decoded && Buffer.isBuffer(decoded.pcm)) {
+      const bitsPerSample = 16;
+      const wavBuffer = createWavBuffer(
+        decoded.pcm, 
+        decoded.sampleRate || 24000, 
+        decoded.channels || 1, 
+        bitsPerSample
+      );
+
+      fs.writeFileSync(wav_out, wavBuffer);
+      console.log('WAV 文件已写入:', wav_out);
+    } else {
+      console.error('decodeAudioToPCM 没有返回预期的带有 pcm Buffer 的对象');
+    }
+
+    console.log('\n=== 所有测试完成 ===');
+  } catch (error) {
+    console.error('测试出错:', error);
+    process.exit(1);
+  }
 }
+
+// 运行测试
+runTests();
