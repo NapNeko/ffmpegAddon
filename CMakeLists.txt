@@ -32,7 +32,14 @@ else()
 endif()
 
 # 源文件与 Node Addon 定义
-
+# 显式列出 FFmpeg Addon 源文件（模块化结构）
+set(ADDON_SOURCES
+    src/ffmpegAddon.cpp
+    src/getDuration.cpp
+    src/decodeAudio.cpp
+    src/videoInfo.cpp
+    src/convertNTSilk.cpp
+)
 
 # 添加 silk-v3-decoder silk/interface 和 silk/src 源文件
 set(SILK_INTERFACE_DIR "${CMAKE_SOURCE_DIR}/silk-v3-decoder/silk/interface")
@@ -41,9 +48,9 @@ file(GLOB SILK_SRC_FILES
     "${SILK_INTERFACE_DIR}/*.c" "${SILK_INTERFACE_DIR}/*.S"
     "${SILK_SRC_DIR}/*.c" "${SILK_SRC_DIR}/*.S"
 )
-file(GLOB SRC_C "src/*.c" "src/*.S")
-file(GLOB SRC_CPP "src/*.cpp")
-list(APPEND SRC ${SRC_C} ${SRC_CPP} ${SILK_SRC_FILES})
+
+# 合并所有源文件
+set(SRC ${ADDON_SOURCES} ${SILK_SRC_FILES})
 add_library(${PROJECT_NAME} SHARED ${SRC} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 
