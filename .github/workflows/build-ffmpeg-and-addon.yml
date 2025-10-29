@@ -109,8 +109,8 @@ jobs:
 
       - name: Configure & build static FFmpeg
         run: |
-          chmod +x scripts/build_ffmpeg_linux.sh || true
-          ./scripts/build_ffmpeg_linux.sh "$PREFIX"
+          chmod +x scripts/build_ffmpeg_linux_arm64.sh || true
+          ./scripts/build_ffmpeg_linux_arm64.sh "$PREFIX"
 
       - name: Show installed libs
         run: ls -la "$PREFIX/lib" || true
