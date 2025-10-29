@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-linux:
-    name: Build on Ubuntu
+    name: Build on Ubuntu (x64)
     runs-on: ubuntu-latest
     env:
       PREFIX: ${{ github.workspace }}/ffmpeg_out
@@ -72,6 +72,75 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-linux
+          path: |
+            ffmpeg_out/include
+            ffmpeg_out/lib
+
+  build-linux-arm64:
+    name: Build on Ubuntu (ARM64)
+    runs-on: ubuntu-arm-latest
+    env:
+      PREFIX: ${{ github.workspace }}/ffmpeg_out
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
+
+      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+        run: |
+          rm -rf ffmpeg_src
+          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+
+      - name: Clone silk-v3-decoder
+        run: |
+          rm -rf silk-v3-decoder
+          git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+
+      - name: Apply repository patches to ffmpeg_src
+        run: |
+          set -euo pipefail
+          echo "Applying patches to ffmpeg_src"
+          cd ffmpeg_src && git apply --whitespace=fix ../patches/*.patch
+        shell: bash
+
+      - name: Configure & build static FFmpeg
+        run: |
+          chmod +x scripts/build_ffmpeg_linux.sh || true
+          ./scripts/build_ffmpeg_linux.sh "$PREFIX"
+
+      - name: Show installed libs
+        run: ls -la "$PREFIX/lib" || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Configure Node addon (point to built FFmpeg)
+        run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
+
+      - name: Build Node addon (cmake-js)
+        run: npx cmake-js build --arch=arm64 --runtime=node
+
+      - name: Upload built addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-addon-linux-arm64
+          path: |
+            build/**/*.node
+            Release/**/*.node
+
+      - name: Upload FFmpeg headers and libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-libs-linux-arm64
           path: |
             ffmpeg_out/include
             ffmpeg_out/lib
