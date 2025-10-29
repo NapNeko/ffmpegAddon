@@ -78,7 +78,7 @@ jobs:
 
   build-linux-arm64:
     name: Build on Ubuntu (ARM64)
-    runs-on: ubuntu-arm-latest
+    runs-on: ubuntu-22.04-arm
     env:
       PREFIX: ${{ github.workspace }}/ffmpeg_out
     steps:
