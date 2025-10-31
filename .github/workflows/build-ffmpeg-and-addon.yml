@@ -24,7 +24,7 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update
-          apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
+          apt-get install -y autoconf automake build-essential cmake pkg-config yasm nasm libtool git python3 curl ca-certificates
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
@@ -96,7 +96,7 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update
-          apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
+          apt-get install -y autoconf automake build-essential cmake pkg-config yasm nasm libtool git python3 curl ca-certificates
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
