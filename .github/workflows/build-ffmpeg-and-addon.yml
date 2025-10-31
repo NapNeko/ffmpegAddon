@@ -11,16 +11,20 @@ jobs:
   build-linux:
     name: Build on Ubuntu (x64)
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      options: --user root
     env:
       PREFIX: ${{ github.workspace }}/ffmpeg_out
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3
+          apt-get update
+          apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
@@ -79,16 +83,20 @@ jobs:
   build-linux-arm64:
     name: Build on Ubuntu (ARM64)
     runs-on: ubuntu-22.04-arm
+    container:
+      image: ubuntu:20.04
+      options: --user root --platform linux/arm64
     env:
       PREFIX: ${{ github.workspace }}/ffmpeg_out
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
+          apt-get update
+          apt-get install -y autoconf automake build-essential pkg-config yasm nasm libtool git python3 curl ca-certificates
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
