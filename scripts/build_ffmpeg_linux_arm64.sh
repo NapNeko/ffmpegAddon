@@ -74,6 +74,7 @@ EXTRA_LDFLAGS="-fPIC"
   --enable-parser=vorbis \
   --enable-bsf=h264_mp4toannexb \
   --enable-bsf=hevc_mp4toannexb \
+  --disable-asm \
   --pkg-config-flags=--static \
   --extra-cflags="$EXTRA_CFLAGS" \
   --extra-cxxflags="$EXTRA_CXXFLAGS" \
