@@ -79,6 +79,18 @@ foreach(lib IN LISTS _ffmpeg_libs)
     endif()
 endforeach()
 
+# 检测并链接 LAME 库（所有平台）
+if(WIN32)
+    # Windows: 使用 mp3lame.lib (MSVC 命名约定)
+    set(_lame_lib "${FFMPEG_LIB_DIR}/mp3lame.lib")
+    if(EXISTS "${_lame_lib}")
+        list(APPEND _found_libs "${_lame_lib}")
+        message(STATUS "Found LAME library: ${_lame_lib}")
+    else()
+        message(WARNING "LAME lib missing: mp3lame.lib not found in ${FFMPEG_LIB_DIR}")
+    endif()
+endif()
+
 # 链接 FFmpeg
 if(_found_libs)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${_found_libs})
