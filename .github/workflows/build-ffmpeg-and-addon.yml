@@ -26,6 +26,19 @@ jobs:
           apt-get update
           apt-get install -y autoconf automake build-essential cmake pkg-config yasm nasm libtool git python3 curl ca-certificates
 
+      - name: Build and install lame (static library)
+        run: |
+          curl -L https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download -o lame-3.100.tar.gz
+          tar xzf lame-3.100.tar.gz
+          cd lame-3.100
+          ./configure --prefix="${PREFIX}" --enable-static --disable-shared --enable-nasm --with-pic CFLAGS="-fPIC"
+          make -j$(nproc)
+          make install
+          cd ..
+          echo "Lame installed, checking files:"
+          ls -la "${PREFIX}/lib" || true
+          ls -la "${PREFIX}/include" || true
+
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
@@ -98,6 +111,19 @@ jobs:
           apt-get update
           apt-get install -y autoconf automake build-essential cmake pkg-config yasm nasm libtool git python3 curl ca-certificates
 
+      - name: Build and install lame (static library)
+        run: |
+          curl -L https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download -o lame-3.100.tar.gz
+          tar xzf lame-3.100.tar.gz
+          cd lame-3.100
+          ./configure --prefix="${PREFIX}" --enable-static --disable-shared --with-pic CFLAGS="-fPIC"
+          make -j$(nproc)
+          make install
+          cd ..
+          echo "Lame installed, checking files:"
+          ls -la "${PREFIX}/lib" || true
+          ls -la "${PREFIX}/include" || true
+
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
@@ -162,7 +188,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install MSYS2 and required packages
         id: msys2
@@ -198,6 +225,45 @@ jobs:
           echo "Applying patches to ffmpeg_src"
           cd "$(cygpath -u "$GITHUB_WORKSPACE")/ffmpeg_src" && git apply --ignore-whitespace ../patches/*.patch
 
+      - name: Build and install lame (static library) on Windows
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        shell: msys2 {0}
+        run: |
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
+          
+          # Download and extract lame
+          curl -L https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download -o lame-3.100.tar.gz
+          tar xzf lame-3.100.tar.gz
+          cd lame-3.100
+          
+          # Use MSVC directly via Makefile.MSVC (official MSVC support)
+          # First generate config.h from configMS.h
+          cp configMS.h config.h
+          
+          # Build static library using nmake with MSVC for x64
+          # Override MACHINE and LIB_OPTS for x64
+          nmake -f Makefile.MSVC \
+            COMP=MSVC \
+            ASM=NO \
+            MSVCVER=Win64 \
+            MACHINE=/machine:X64 \
+            libmp3lame-static.lib
+          
+          # Install files
+          mkdir -p "$(cygpath -u "$PREFIX")/lib"
+          mkdir -p "$(cygpath -u "$PREFIX")/include/lame"
+          cp output/libmp3lame-static.lib "$(cygpath -u "$PREFIX")/lib/libmp3lame.lib"
+          cp include/lame.h "$(cygpath -u "$PREFIX")/include/lame/"
+          # Also copy to root include for FFmpeg to find it
+          cp include/lame.h "$(cygpath -u "$PREFIX")/include/"
+          
+          cd ..
+          
+          echo "Lame installed, checking files:"
+          ls -la "$(cygpath -u "$PREFIX")/lib" || true
+          ls -la "$(cygpath -u "$PREFIX")/include" || true
+
       - name: Build FFmpeg
         env:
           MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
@@ -208,6 +274,12 @@ jobs:
           export MSYS2_ARG_CONV_EXCL="*"
           pacman -S --noconfirm gawk make diffutils
           export AWK=gawk
+          
+          # Verify cl.exe is accessible (should be inherited from path-type: inherit)
+          echo "Checking for MSVC tools..."
+          which cl.exe || echo "Warning: cl.exe not found in PATH"
+          cl.exe 2>&1 | head -n 1 || echo "Warning: cl.exe test failed"
+          
           chmod +x ./scripts/build_ffmpeg_win.sh || true
           ./scripts/build_ffmpeg_win.sh "$(cygpath -u "$PREFIX")"
 
@@ -261,6 +333,19 @@ jobs:
         run: |
           brew update
           brew install automake autoconf pkg-config yasm nasm libtool git python3
+
+      - name: Build and install lame (static library)
+        run: |
+          curl -L https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download -o lame-3.100.tar.gz
+          tar xzf lame-3.100.tar.gz
+          cd lame-3.100
+          ./configure --prefix="${PREFIX}" --enable-static --disable-shared --with-pic CFLAGS="-fPIC"
+          make -j$(sysctl -n hw.ncpu)
+          make install
+          cd ..
+          echo "Lame installed, checking files:"
+          ls -la "${PREFIX}/lib" || true
+          ls -la "${PREFIX}/include" || true
 
       - name: Clone FFmpeg release/7.1 into ffmpeg_src
         run: |

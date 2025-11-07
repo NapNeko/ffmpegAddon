@@ -7,3 +7,4 @@ ffmpeg_src/
 buildout/
 ffmpeg_out/
 silk-v3-decoder/
+lame-3.100/
