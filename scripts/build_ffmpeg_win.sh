@@ -9,21 +9,27 @@ fi
 
 echo "Install prefix: $PREFIX"
 
-# Create pkg-config file for lame if it doesn't exist
+# Create pkg-config file for lame with MSVC-compatible flags
 mkdir -p "$PREFIX/lib/pkgconfig"
+
+# Convert to Windows paths for pkg-config
+PREFIX_WIN_FOR_PC=$(cygpath -w "$PREFIX" 2>/dev/null || echo "$PREFIX")
+# Escape backslashes for pkg-config file
+PREFIX_WIN_FOR_PC=$(echo "$PREFIX_WIN_FOR_PC" | sed 's/\\/\\\\/g')
+
 cat > "$PREFIX/lib/pkgconfig/lame.pc" << EOF
-prefix=$PREFIX
+prefix=$PREFIX_WIN_FOR_PC
 exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
+libdir=\${exec_prefix}\\lib
+includedir=\${prefix}\\include
 
 Name: lame
 Description: LAME MP3 encoder
 Version: 3.100
-Libs: -L\${libdir} -lmp3lame
+Libs: -LIBPATH:\${libdir} libmp3lame.lib
 Cflags: -I\${includedir}
 EOF
-echo "Created pkg-config file for lame"
+echo "Created pkg-config file for lame with MSVC-style flags"
 
 # Set PKG_CONFIG_PATH to include our prefix
 export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
