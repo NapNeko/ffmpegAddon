@@ -250,10 +250,10 @@ jobs:
             MACHINE=/machine:X64 \
             libmp3lame-static.lib
           
-          # Install files
+          # Install files with standardized naming (mp3lame.lib without lib prefix)
           mkdir -p "$(cygpath -u "$PREFIX")/lib"
           mkdir -p "$(cygpath -u "$PREFIX")/include/lame"
-          cp output/libmp3lame-static.lib "$(cygpath -u "$PREFIX")/lib/libmp3lame.lib"
+          cp output/libmp3lame-static.lib "$(cygpath -u "$PREFIX")/lib/mp3lame.lib"
           cp include/lame.h "$(cygpath -u "$PREFIX")/include/lame/"
           # Also copy to root include for FFmpeg to find it
           cp include/lame.h "$(cygpath -u "$PREFIX")/include/"

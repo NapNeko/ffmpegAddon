@@ -26,7 +26,7 @@ includedir=\${prefix}\\include
 Name: lame
 Description: LAME MP3 encoder
 Version: 3.100
-Libs: -LIBPATH:\${libdir} libmp3lame.lib
+Libs: -LIBPATH:\${libdir} mp3lame.lib
 Cflags: -I\${includedir}
 EOF
 echo "Created pkg-config file for lame with MSVC-style flags"
@@ -41,17 +41,14 @@ pkg-config --modversion lame 2>/dev/null || echo "Could not get lame version"
 pkg-config --cflags lame 2>/dev/null || echo "Could not get lame cflags"
 pkg-config --libs lame 2>/dev/null || echo "Could not get lame libs"
 
-# Verify LAME library files exist
-echo "Checking for LAME library files..."
-if [ -f "$PREFIX/lib/libmp3lame.lib" ]; then
-  echo "Found: $PREFIX/lib/libmp3lame.lib"
-elif [ -f "$PREFIX/lib/mp3lame.lib" ]; then
+# Verify LAME library file exists
+echo "Checking for LAME library file..."
+if [ -f "$PREFIX/lib/mp3lame.lib" ]; then
   echo "Found: $PREFIX/lib/mp3lame.lib"
-  # Create symlink if needed
-  ln -sf "$PREFIX/lib/mp3lame.lib" "$PREFIX/lib/libmp3lame.lib" 2>/dev/null || true
 else
-  echo "WARNING: LAME library not found in $PREFIX/lib"
+  echo "ERROR: mp3lame.lib not found in $PREFIX/lib"
   ls -la "$PREFIX/lib" 2>/dev/null || echo "Could not list $PREFIX/lib"
+  exit 1
 fi
 
 # Convert Windows path to proper format for MSVC
@@ -67,7 +64,6 @@ CONFIGURE_FLAGS=(
   --prefix="$PREFIX" \
   --extra-cflags="-I$PREFIX_WIN_INC" \
   --extra-ldflags="-LIBPATH:$PREFIX_WIN_LIB" \
-  --extra-libs="libmp3lame.lib" \
   --toolchain=msvc \
   --arch=x86_64 \
   --target-os=win64 \
