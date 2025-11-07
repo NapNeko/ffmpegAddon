@@ -59,6 +59,10 @@ PREFIX_WIN=$(cygpath -w "$PREFIX" 2>/dev/null || echo "$PREFIX")
 PREFIX_WIN_LIB=$(cygpath -w "$PREFIX/lib" 2>/dev/null || echo "$PREFIX/lib")
 PREFIX_WIN_INC=$(cygpath -w "$PREFIX/include" 2>/dev/null || echo "$PREFIX/include")
 
+# Set environment variables for MSVC linker
+export LIB="$PREFIX_WIN_LIB;$LIB"
+export INCLUDE="$PREFIX_WIN_INC;$INCLUDE"
+
 CONFIGURE_FLAGS=(
   --prefix="$PREFIX" \
   --extra-cflags="-I$PREFIX_WIN_INC" \
@@ -148,7 +152,11 @@ cd ffmpeg_src
 
 
 echo "Configuring FFmpeg with MSVC toolchain..."
-./configure "${CONFIGURE_FLAGS[@]}"
+if ! ./configure "${CONFIGURE_FLAGS[@]}"; then
+  echo "Configure failed! Displaying config.log:"
+  cat ffbuild/config.log || echo "Could not read config.log"
+  exit 1
+fi
 
 echo "Running make -j$(nproc || echo 4)"
 make -j"$(nproc || echo 4)"
