@@ -64,7 +64,6 @@ CONFIGURE_FLAGS=(
   --prefix="$PREFIX" \
   --extra-cflags="-I$PREFIX_WIN_INC" \
   --extra-ldflags="-LIBPATH:$PREFIX_WIN_LIB" \
-  --extra-libs="mp3lame.lib" \
   --toolchain=msvc \
   --arch=x86_64 \
   --target-os=win64 \
