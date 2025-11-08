@@ -59,7 +59,8 @@ public:
         AVPacket *pkt = av_packet_alloc();
         AVFrame *frame = av_frame_alloc();
         AVFrame *rgb = av_frame_alloc();
-        struct SwsContext *sws = nullptr;
+        SwsContext *sws = nullptr;
+        uint8_t *buffer = nullptr;
         int ret;
         bool success = false;
         while ((ret = av_read_frame(fmt, pkt)) >= 0)
@@ -79,7 +80,7 @@ public:
                     width_ = w;
                     height_ = h;
                     int rgbLinesize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, w, h, 1);
-                    uint8_t *buffer = (uint8_t *)av_malloc(rgbLinesize);
+                    buffer = (uint8_t *)av_malloc(rgbLinesize);
                     if (!buffer)
                     {
                         av_packet_unref(pkt);
@@ -96,6 +97,7 @@ public:
                     if (!sws)
                     {
                         av_free(buffer);
+                        buffer = nullptr;
                         av_packet_unref(pkt);
                         break;
                     }
@@ -103,7 +105,9 @@ public:
                     if (scaled <= 0)
                     {
                         av_free(buffer);
+                        buffer = nullptr;
                         sws_freeContext(sws);
+                        sws = nullptr;
                         av_packet_unref(pkt);
                         break;
                     }
@@ -201,7 +205,9 @@ public:
                         videoCodec_ = vcodec ? vcodec : "";
                         
                         av_free(buffer);
+                        buffer = nullptr;
                         sws_freeContext(sws);
+                        sws = nullptr;
                         success = true;
                         av_packet_unref(pkt);
                         break;
@@ -210,6 +216,12 @@ public:
             }
             av_packet_unref(pkt);
         }
+        
+        // 清理资源
+        if (buffer)
+            av_free(buffer);
+        if (sws)
+            sws_freeContext(sws);
         av_frame_free(&frame);
         av_frame_free(&rgb);
         av_packet_free(&pkt);
@@ -284,4 +296,3 @@ Value GetVideoInfo(const CallbackInfo &info)
     worker->Queue();
     return deferred.Promise();
 }
-

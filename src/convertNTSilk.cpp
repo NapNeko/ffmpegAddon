@@ -248,20 +248,21 @@ public:
                 // 分配重采样输出缓冲
                 uint8_t *resampled_data = nullptr;
                 int resampled_linesize = 0;
-                av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0);
-
-                // 执行重采样
-                int converted_samples = swr_convert(swr, &resampled_data, out_count,
-                                                    (const uint8_t **)decFrame->data, decFrame->nb_samples);
-
-                if (converted_samples > 0)
+                if (av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0) >= 0)
                 {
-                    // 将重采样后的数据追加到缓冲区
-                    int16_t *samples = (int16_t *)resampled_data;
-                    sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
-                }
+                    // 执行重采样
+                    int converted_samples = swr_convert(swr, &resampled_data, out_count,
+                                                        (const uint8_t **)decFrame->data, decFrame->nb_samples);
 
-                av_freep(&resampled_data);
+                    if (converted_samples > 0)
+                    {
+                        // 将重采样后的数据追加到缓冲区
+                        int16_t *samples = (int16_t *)resampled_data;
+                        sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+                    }
+
+                    av_freep(&resampled_data);
+                }
                 av_frame_unref(decFrame);
 
                 // 当缓冲区有足够的采样时,送入编码器
@@ -310,18 +311,19 @@ public:
 
             uint8_t *resampled_data = nullptr;
             int resampled_linesize = 0;
-            av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0);
-
-            int converted_samples = swr_convert(swr, &resampled_data, out_count,
-                                                (const uint8_t **)decFrame->data, decFrame->nb_samples);
-
-            if (converted_samples > 0)
+            if (av_samples_alloc(&resampled_data, &resampled_linesize, 1, out_count, AV_SAMPLE_FMT_S16, 0) >= 0)
             {
-                int16_t *samples = (int16_t *)resampled_data;
-                sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
-            }
+                int converted_samples = swr_convert(swr, &resampled_data, out_count,
+                                                    (const uint8_t **)decFrame->data, decFrame->nb_samples);
 
-            av_freep(&resampled_data);
+                if (converted_samples > 0)
+                {
+                    int16_t *samples = (int16_t *)resampled_data;
+                    sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+                }
+
+                av_freep(&resampled_data);
+            }
             av_frame_unref(decFrame);
 
             while ((int)sample_buffer.size() >= frame_size)
@@ -357,18 +359,21 @@ public:
         }
 
         // Flush 重采样器
-        uint8_t *resampled_data = nullptr;
-        int resampled_linesize = 0;
-        int max_out_samples = frame_size * 2;
-        av_samples_alloc(&resampled_data, &resampled_linesize, 1, max_out_samples, AV_SAMPLE_FMT_S16, 0);
-
-        int converted_samples = swr_convert(swr, &resampled_data, max_out_samples, nullptr, 0);
-        if (converted_samples > 0)
         {
-            int16_t *samples = (int16_t *)resampled_data;
-            sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+            uint8_t *resampled_data = nullptr;
+            int resampled_linesize = 0;
+            int max_out_samples = frame_size * 2;
+            if (av_samples_alloc(&resampled_data, &resampled_linesize, 1, max_out_samples, AV_SAMPLE_FMT_S16, 0) >= 0)
+            {
+                int converted_samples = swr_convert(swr, &resampled_data, max_out_samples, nullptr, 0);
+                if (converted_samples > 0)
+                {
+                    int16_t *samples = (int16_t *)resampled_data;
+                    sample_buffer.insert(sample_buffer.end(), samples, samples + converted_samples);
+                }
+                av_freep(&resampled_data);
+            }
         }
-        av_freep(&resampled_data);
 
         // 处理剩余的采样(包括不足一帧的部分)
         while (!sample_buffer.empty())
@@ -464,4 +469,3 @@ Value ConvertToNTSilkTct(const CallbackInfo &info)
     worker->Queue();
     return deferred.Promise();
 }
-

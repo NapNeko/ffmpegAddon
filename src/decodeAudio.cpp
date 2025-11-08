@@ -103,11 +103,13 @@ public:
         }
 
         AVChannelLayout tmp_ch_layout;
+        bool tmp_ch_layout_allocated = false;
         const AVChannelLayout *in_ch_layout = &st->codecpar->ch_layout;
         if (in_ch_layout->nb_channels == 0)
         {
             av_channel_layout_default(&tmp_ch_layout, src_channels);
             in_ch_layout = &tmp_ch_layout;
+            tmp_ch_layout_allocated = true;
         }
 
         // 输出单声道
@@ -122,16 +124,24 @@ public:
         {
             if (swr)
                 swr_free(&swr);
+            if (tmp_ch_layout_allocated)
+                av_channel_layout_uninit(&tmp_ch_layout);
             avcodec_free_context(&c);
             avformat_close_input(&fmt);
+            if (outFile)
+                fclose(outFile);
             SetError("Failed to init resampler");
             return;
         }
         if (swr_init(swr) < 0)
         {
             swr_free(&swr);
+            if (tmp_ch_layout_allocated)
+                av_channel_layout_uninit(&tmp_ch_layout);
             avcodec_free_context(&c);
             avformat_close_input(&fmt);
+            if (outFile)
+                fclose(outFile);
             SetError("Failed to init resampler");
             return;
         }
@@ -176,6 +186,8 @@ public:
         av_frame_free(&frame);
         av_packet_free(&pkt);
         swr_free(&swr);
+        if (tmp_ch_layout_allocated)
+            av_channel_layout_uninit(&tmp_ch_layout);
         sampleRate_ = out_sample_rate;
         channels_ = 1; // 输出单声道
         avcodec_free_context(&c);
@@ -235,4 +247,3 @@ Value DecodeAudioToPCM(const CallbackInfo &info)
     worker->Queue();
     return deferred.Promise();
 }
-

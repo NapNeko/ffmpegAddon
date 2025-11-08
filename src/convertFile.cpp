@@ -16,6 +16,7 @@ public:
         AVCodecContext **encCtxArray = nullptr;
         SwrContext **swrArray = nullptr;
         SwsContext **swsArray = nullptr;
+        unsigned int streamCount = 0;
 
         // 打开输入文件
         if (avformat_open_input(&inFmt, inputPath_.c_str(), nullptr, nullptr) < 0)
@@ -40,11 +41,17 @@ public:
         }
 
         // 为每个流分配解码器和编码器上下文数组
-        unsigned int streamCount = inFmt->nb_streams;
-        decCtxArray = new AVCodecContext *[streamCount]();
-        encCtxArray = new AVCodecContext *[streamCount]();
-        swrArray = new SwrContext *[streamCount]();
-        swsArray = new SwsContext *[streamCount]();
+        streamCount = inFmt->nb_streams;
+        decCtxArray = new (std::nothrow) AVCodecContext *[streamCount]();
+        encCtxArray = new (std::nothrow) AVCodecContext *[streamCount]();
+        swrArray = new (std::nothrow) SwrContext *[streamCount]();
+        swsArray = new (std::nothrow) SwsContext *[streamCount]();
+        
+        if (!decCtxArray || !encCtxArray || !swrArray || !swsArray)
+        {
+            SetError("Failed to allocate context arrays");
+            goto cleanup;
+        }
 
         // 为每个输入流创建对应的输出流
         for (unsigned int i = 0; i < streamCount; i++)
