@@ -18,7 +18,7 @@ Object Init(Env env, Object exports)
     exports.Set("getVideoInfo", Function::New(env, GetVideoInfo));
     exports.Set("convertToNTSilkTct", Function::New(env, ConvertToNTSilkTct));
     exports.Set("decodeAudioToFmt", Function::New(env, DecodeAudioToFmt));
-    exports.Set("decodePCM", Function::New(env, DecodeAudioToPCM));
+    exports.Set("decodeAudioToPCM", Function::New(env, DecodeAudioToPCM));
     exports.Set("convertFile", Function::New(env, ConvertFile));
     return exports;
 }
