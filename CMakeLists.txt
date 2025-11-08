@@ -39,6 +39,7 @@ set(ADDON_SOURCES
     src/decodeAudio.cpp
     src/videoInfo.cpp
     src/convertNTSilk.cpp
+    src/convertFile.cpp
 )
 
 # 添加 silk-v3-decoder silk/interface 和 silk/src 源文件
