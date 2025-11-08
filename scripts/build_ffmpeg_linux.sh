@@ -58,6 +58,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-demuxer=ogg \
   --enable-demuxer=wav \
   --enable-demuxer=flac \
+  --enable-demuxer=amr \
   --enable-demuxer=h264 \
   --enable-demuxer=hevc \
   --enable-demuxer=ntsilk_skp_s16le \
@@ -71,6 +72,8 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=vorbis \
   --enable-decoder=flac \
   --enable-decoder=pcm_s16le \
+  --enable-decoder=amrnb \
+  --enable-decoder=amrwb \
   --enable-decoder=h264 \
   --enable-encoder=aac \
   --enable-encoder=flac \
@@ -98,6 +101,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-parser=aac \
   --enable-parser=mpegaudio \
   --enable-parser=vorbis \
+  --enable-parser=amr \
   --enable-bsf=h264_mp4toannexb \
   --enable-bsf=hevc_mp4toannexb \
   --disable-x86asm \
