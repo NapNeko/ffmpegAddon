@@ -3,5 +3,4 @@
 #include "ffmpegCommon.h"
 
 // Forward declaration
-Value DecodeAudioToPCM(const CallbackInfo &info);
-
+Value DecodeAudioToFmt(const CallbackInfo &info);

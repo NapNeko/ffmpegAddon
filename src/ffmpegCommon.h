@@ -12,9 +12,9 @@ extern "C"
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/audio_fifo.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
 
 using namespace Napi;
-
