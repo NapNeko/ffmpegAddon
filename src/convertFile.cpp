@@ -1,5 +1,10 @@
 #include "convertFile.h"
 #include <iostream>
+#include <vector>
+
+extern "C" {
+#include <libavutil/audio_fifo.h>
+}
 
 // ===== ConvertFile Async Worker =====
 class ConvertFileWorker : public AsyncWorker
@@ -16,6 +21,7 @@ public:
         AVCodecContext **encCtxArray = nullptr;
         SwrContext **swrArray = nullptr;
         SwsContext **swsArray = nullptr;
+        AVAudioFifo **audioFifoArray = nullptr;
         unsigned int streamCount = 0;
 
         // 打开输入文件
@@ -46,8 +52,9 @@ public:
         encCtxArray = new (std::nothrow) AVCodecContext *[streamCount]();
         swrArray = new (std::nothrow) SwrContext *[streamCount]();
         swsArray = new (std::nothrow) SwsContext *[streamCount]();
+        audioFifoArray = new (std::nothrow) AVAudioFifo *[streamCount]();
         
-        if (!decCtxArray || !encCtxArray || !swrArray || !swsArray)
+        if (!decCtxArray || !encCtxArray || !swrArray || !swsArray || !audioFifoArray)
         {
             SetError("Failed to allocate context arrays");
             goto cleanup;
@@ -179,6 +186,14 @@ public:
                 }
 
                 encCtxArray[i]->time_base = {1, encCtxArray[i]->sample_rate};
+                
+                // 设置编码器的 frame_size（对于 MP3 等编码器很重要）
+                if (encoder->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
+                {
+                    encCtxArray[i]->frame_size = 0; // 可变帧大小
+                }
+                // 如果编码器没有指定 frame_size，使用默认值
+                // libmp3lame 会在 avcodec_open2 后自动设置为 1152
 
                 // 如果需要音频重采样，初始化 SwrContext
                 if (encCtxArray[i]->sample_fmt != decCtxArray[i]->sample_fmt ||
@@ -202,6 +217,14 @@ public:
                 avcodec_free_context(&encCtxArray[i]);
                 avcodec_free_context(&decCtxArray[i]);
                 continue;
+            }
+
+            // 为音频流创建 FIFO 缓冲区（用于处理帧大小对齐）
+            if (inCodecPar->codec_type == AVMEDIA_TYPE_AUDIO && encCtxArray[i]->frame_size > 0)
+            {
+                audioFifoArray[i] = av_audio_fifo_alloc(encCtxArray[i]->sample_fmt,
+                                                        encCtxArray[i]->ch_layout.nb_channels,
+                                                        encCtxArray[i]->frame_size);
             }
 
             // 复制编码器参数到输出流
@@ -312,18 +335,55 @@ public:
                             }
                         }
 
-                        // 编码
-                        if (avcodec_send_frame(encCtxArray[streamIndex], frameToEncode) == 0)
+                        // 如果使用 FIFO 缓冲区（用于固定帧大小的编码器）
+                        if (audioFifoArray[streamIndex])
                         {
-                            AVPacket *outPacket = av_packet_alloc();
-                            while (avcodec_receive_packet(encCtxArray[streamIndex], outPacket) == 0)
+                            // 将重采样后的音频数据写入 FIFO
+                            av_audio_fifo_write(audioFifoArray[streamIndex], (void **)frameToEncode->data, frameToEncode->nb_samples);
+
+                            // 当 FIFO 中有足够的样本时，编码完整的帧
+                            while (av_audio_fifo_size(audioFifoArray[streamIndex]) >= encCtxArray[streamIndex]->frame_size)
                             {
-                                outPacket->stream_index = streamIndex;
-                                av_packet_rescale_ts(outPacket, encCtxArray[streamIndex]->time_base, outStream->time_base);
-                                av_interleaved_write_frame(outFmt, outPacket);
-                                av_packet_unref(outPacket);
+                                AVFrame *fifoFrame = av_frame_alloc();
+                                fifoFrame->nb_samples = encCtxArray[streamIndex]->frame_size;
+                                fifoFrame->format = encCtxArray[streamIndex]->sample_fmt;
+                                fifoFrame->ch_layout = encCtxArray[streamIndex]->ch_layout;
+                                fifoFrame->sample_rate = encCtxArray[streamIndex]->sample_rate;
+                                av_frame_get_buffer(fifoFrame, 0);
+
+                                av_audio_fifo_read(audioFifoArray[streamIndex], (void **)fifoFrame->data, encCtxArray[streamIndex]->frame_size);
+                                fifoFrame->pts = av_rescale_q(frameToEncode->pts, encCtxArray[streamIndex]->time_base, encCtxArray[streamIndex]->time_base);
+
+                                if (avcodec_send_frame(encCtxArray[streamIndex], fifoFrame) == 0)
+                                {
+                                    AVPacket *outPacket = av_packet_alloc();
+                                    while (avcodec_receive_packet(encCtxArray[streamIndex], outPacket) == 0)
+                                    {
+                                        outPacket->stream_index = streamIndex;
+                                        av_packet_rescale_ts(outPacket, encCtxArray[streamIndex]->time_base, outStream->time_base);
+                                        av_interleaved_write_frame(outFmt, outPacket);
+                                        av_packet_unref(outPacket);
+                                    }
+                                    av_packet_free(&outPacket);
+                                }
+                                av_frame_free(&fifoFrame);
                             }
-                            av_packet_free(&outPacket);
+                        }
+                        else
+                        {
+                            // 直接编码（无需 FIFO 缓冲）
+                            if (avcodec_send_frame(encCtxArray[streamIndex], frameToEncode) == 0)
+                            {
+                                AVPacket *outPacket = av_packet_alloc();
+                                while (avcodec_receive_packet(encCtxArray[streamIndex], outPacket) == 0)
+                                {
+                                    outPacket->stream_index = streamIndex;
+                                    av_packet_rescale_ts(outPacket, encCtxArray[streamIndex]->time_base, outStream->time_base);
+                                    av_interleaved_write_frame(outFmt, outPacket);
+                                    av_packet_unref(outPacket);
+                                }
+                                av_packet_free(&outPacket);
+                            }
                         }
 
                         av_frame_unref(convertedFrame);
@@ -339,22 +399,65 @@ public:
             {
                 if (decCtxArray[i] && encCtxArray[i])
                 {
+                    // Flush 解码器
                     avcodec_send_packet(decCtxArray[i], nullptr);
                     while (avcodec_receive_frame(decCtxArray[i], frame) == 0)
                     {
-                        avcodec_send_frame(encCtxArray[i], frame);
-                        AVPacket *outPacket = av_packet_alloc();
-                        while (avcodec_receive_packet(encCtxArray[i], outPacket) == 0)
+                        // 如果使用 FIFO，将剩余帧写入 FIFO
+                        if (audioFifoArray[i])
                         {
-                            outPacket->stream_index = i;
-                            av_packet_rescale_ts(outPacket, encCtxArray[i]->time_base, outFmt->streams[i]->time_base);
-                            av_interleaved_write_frame(outFmt, outPacket);
-                            av_packet_unref(outPacket);
+                            av_audio_fifo_write(audioFifoArray[i], (void **)frame->data, frame->nb_samples);
                         }
-                        av_packet_free(&outPacket);
+                        else
+                        {
+                            avcodec_send_frame(encCtxArray[i], frame);
+                            AVPacket *outPacket = av_packet_alloc();
+                            while (avcodec_receive_packet(encCtxArray[i], outPacket) == 0)
+                            {
+                                outPacket->stream_index = i;
+                                av_packet_rescale_ts(outPacket, encCtxArray[i]->time_base, outFmt->streams[i]->time_base);
+                                av_interleaved_write_frame(outFmt, outPacket);
+                                av_packet_unref(outPacket);
+                            }
+                            av_packet_free(&outPacket);
+                        }
                         av_frame_unref(frame);
                     }
 
+                    // Flush FIFO 缓冲区中的剩余样本
+                    if (audioFifoArray[i])
+                    {
+                        while (av_audio_fifo_size(audioFifoArray[i]) > 0)
+                        {
+                            int fifo_size = av_audio_fifo_size(audioFifoArray[i]);
+                            int samples_to_read = (fifo_size >= encCtxArray[i]->frame_size) ? encCtxArray[i]->frame_size : fifo_size;
+                            
+                            AVFrame *fifoFrame = av_frame_alloc();
+                            fifoFrame->nb_samples = samples_to_read;
+                            fifoFrame->format = encCtxArray[i]->sample_fmt;
+                            fifoFrame->ch_layout = encCtxArray[i]->ch_layout;
+                            fifoFrame->sample_rate = encCtxArray[i]->sample_rate;
+                            av_frame_get_buffer(fifoFrame, 0);
+
+                            av_audio_fifo_read(audioFifoArray[i], (void **)fifoFrame->data, samples_to_read);
+
+                            if (avcodec_send_frame(encCtxArray[i], fifoFrame) == 0)
+                            {
+                                AVPacket *outPacket = av_packet_alloc();
+                                while (avcodec_receive_packet(encCtxArray[i], outPacket) == 0)
+                                {
+                                    outPacket->stream_index = i;
+                                    av_packet_rescale_ts(outPacket, encCtxArray[i]->time_base, outFmt->streams[i]->time_base);
+                                    av_interleaved_write_frame(outFmt, outPacket);
+                                    av_packet_unref(outPacket);
+                                }
+                                av_packet_free(&outPacket);
+                            }
+                            av_frame_free(&fifoFrame);
+                        }
+                    }
+
+                    // Flush 编码器
                     avcodec_send_frame(encCtxArray[i], nullptr);
                     AVPacket *outPacket = av_packet_alloc();
                     while (avcodec_receive_packet(encCtxArray[i], outPacket) == 0)
@@ -378,6 +481,16 @@ public:
 
     cleanup:
         // 清理资源
+        if (audioFifoArray)
+        {
+            for (unsigned int i = 0; i < streamCount; i++)
+            {
+                if (audioFifoArray[i])
+                    av_audio_fifo_free(audioFifoArray[i]);
+            }
+            delete[] audioFifoArray;
+        }
+
         if (swsArray)
         {
             for (unsigned int i = 0; i < streamCount; i++)
