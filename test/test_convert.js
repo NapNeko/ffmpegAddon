@@ -7,7 +7,7 @@ async function testConvertFile() {
     // 测试用例 1: 将 MP3 转换为 WAV
     try {
         console.log('Test 1: Converting MP3 to WAV');
-        const inputFile = path.join("C:\\Users\\nanaeo\\Documents\\Tencent Files\\3161592748\\nt_qq\\nt_data\\Ptt\\2025-11\\Ori\\86c3659834a5c5e2ef51d8e9ef512908.amr");
+        const inputFile = path.join(__dirname, 'test.mp3');
         const outputFile = path.join(__dirname, 'test_convert_output.wav');
         
         const result = await addon.convertFile(inputFile, outputFile, 'wav');
