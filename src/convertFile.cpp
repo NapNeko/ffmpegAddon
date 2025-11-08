@@ -45,22 +45,12 @@ public:
         encCtxArray = new AVCodecContext *[streamCount]();
         swrArray = new SwrContext *[streamCount]();
         swsArray = new SwsContext *[streamCount]();
-        
-        // 创建流索引映射数组（输入流索引 -> 输出流索引）
-        int *streamMapping = new int[streamCount];
-        for (unsigned int i = 0; i < streamCount; i++)
-        {
-            streamMapping[i] = -1; // -1 表示该流不会被处理
-        }
 
         // 为每个输入流创建对应的输出流
-        int outputStreamIndex = 0;
-            {
-                if (inCodecPar->codec_type != AVMEDIA_TYPE_AUDIO)
-                {
-                    continue; // 跳过非音频流
-                }
-            }
+        for (unsigned int i = 0; i < streamCount; i++)
+        {
+            AVStream *inStream = inFmt->streams[i];
+            AVCodecParameters *inCodecPar = inStream->codecpar;
 
             // 查找解码器
             const AVCodec *decoder = avcodec_find_decoder(inCodecPar->codec_id);
@@ -137,7 +127,7 @@ public:
                 encCtxArray[i]->height = decCtxArray[i]->height;
                 encCtxArray[i]->width = decCtxArray[i]->width;
                 encCtxArray[i]->sample_aspect_ratio = decCtxArray[i]->sample_aspect_ratio;
-                
+
                 // 选择编码器支持的像素格式
                 if (encoder->pix_fmts)
                 {
@@ -164,7 +154,7 @@ public:
             {
                 encCtxArray[i]->sample_rate = decCtxArray[i]->sample_rate;
                 encCtxArray[i]->ch_layout = decCtxArray[i]->ch_layout;
-                
+
                 // 选择编码器支持的采样格式
                 if (encoder->sample_fmts)
                 {
@@ -441,7 +431,7 @@ private:
 Value ConvertFile(const CallbackInfo &info)
 {
     Env env = info.Env();
-    
+
     if (info.Length() < 3 || !info[0].IsString() || !info[1].IsString() || !info[2].IsString())
     {
         TypeError::New(env, "Expected inputPath (string), outputPath (string), and outputFormat (string)").ThrowAsJavaScriptException();
