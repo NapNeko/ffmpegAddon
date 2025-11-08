@@ -52,6 +52,12 @@ public:
             AVStream *inStream = inFmt->streams[i];
             AVCodecParameters *inCodecPar = inStream->codecpar;
 
+            // 跳过非音频流
+            if (inCodecPar->codec_type != AVMEDIA_TYPE_AUDIO)
+            {
+                continue;
+            }
+
             // 查找解码器
             const AVCodec *decoder = avcodec_find_decoder(inCodecPar->codec_id);
             if (!decoder)
@@ -229,6 +235,14 @@ public:
             {
                 unsigned int streamIndex = packet->stream_index;
                 AVStream *inStream = inFmt->streams[streamIndex];
+
+                // 跳过非音频流的数据包
+                if (inStream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO)
+                {
+                    av_packet_unref(packet);
+                    continue;
+                }
+
                 AVStream *outStream = outFmt->streams[streamIndex];
 
                 // 如果该流没有编码器（直接复制流）
