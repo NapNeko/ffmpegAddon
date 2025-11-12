@@ -48,7 +48,6 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
   --enable-demuxer=flv \
   --enable-demuxer=aac \
   --enable-demuxer=mp3 \
-  --enable-encoder=png \
   --enable-demuxer=ogg \
   --enable-demuxer=wav \
   --enable-demuxer=flac \
