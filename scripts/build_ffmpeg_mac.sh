@@ -48,6 +48,7 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/l
   --enable-demuxer=flv \
   --enable-demuxer=aac \
   --enable-demuxer=mp3 \
+  --enable-encoder=png \
   --enable-demuxer=ogg \
   --enable-demuxer=wav \
   --enable-demuxer=flac \

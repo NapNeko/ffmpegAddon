@@ -69,6 +69,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-encoder=ntsilk_skp_s16le \
   --enable-decoder=aac \
   --enable-decoder=mp3 \
+    --enable-encoder=png \
   --enable-decoder=vorbis \
   --enable-decoder=flac \
   --enable-decoder=pcm_s16le \
