@@ -159,10 +159,11 @@ public:
 
     void OnOK() override {
         Napi::Env env = Env();
-        // Node.js Buffer 接管 pngData_
-        Napi::Buffer<uint8_t> img = Napi::Buffer<uint8_t>::New(env, pngData_, pngSize_,
-            [](Napi::Env, uint8_t* data) { free(data); });
-        pngData_ = nullptr; // Buffer 接管，不再释放
+        // 创建内部Buffer并复制数据
+        Napi::Buffer<uint8_t> img = Napi::Buffer<uint8_t>::New(env, pngSize_);
+        memcpy(img.Data(), pngData_, pngSize_);
+        free(pngData_);
+        pngData_ = nullptr;
 
         Napi::Object obj = Napi::Object::New(env);
         obj.Set("width", Napi::Number::New(env, width_));
