@@ -91,6 +91,15 @@ if(WIN32)
     else()
         message(WARNING "LAME lib missing: mp3lame.lib not found in ${FFMPEG_LIB_DIR}")
     endif()
+else()
+    # Linux/Mac: 使用 libmp3lame.a
+    set(_lame_lib "${FFMPEG_LIB_DIR}/libmp3lame.a")
+    if(EXISTS "${_lame_lib}")
+        list(APPEND _found_libs "${_lame_lib}")
+        message(STATUS "Found LAME library: ${_lame_lib}")
+    else()
+        message(WARNING "LAME lib missing: libmp3lame.a not found in ${FFMPEG_LIB_DIR}")
+    endif()
 endif()
 
 # 链接 FFmpeg
