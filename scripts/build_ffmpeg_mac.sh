@@ -65,6 +65,7 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/l
   --enable-decoder=vorbis \
   --enable-decoder=flac \
   --enable-decoder=pcm_s16le \
+  --enable-decoder=pcm_f32le \
   --enable-decoder=amrnb \
   --enable-decoder=amrwb \
   --enable-decoder=h264 \

@@ -113,6 +113,7 @@ CONFIGURE_FLAGS=(
   --enable-decoder=vorbis \
   --enable-decoder=flac \
   --enable-decoder=pcm_s16le \
+  --enable-decoder=pcm_f32le \
   --enable-decoder=amrnb \
   --enable-decoder=amrwb \
   --enable-decoder=h264 \
