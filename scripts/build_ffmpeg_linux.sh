@@ -70,6 +70,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=aac \
   --enable-decoder=mp3 \
   --enable-decoder=vorbis \
+  --enable-decoder=opus \
   --enable-decoder=flac \
   --enable-decoder=pcm_s16le \
   --enable-decoder=pcm_f32le \
@@ -77,6 +78,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=amrwb \
   --enable-decoder=h264 \
   --enable-encoder=aac \
+  --enable-encoder=opus \
   --enable-encoder=flac \
   --enable-encoder=pcm_s16le \
   --enable-encoder=libopencore_amrnb \
@@ -102,6 +104,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-parser=aac \
   --enable-parser=mpegaudio \
   --enable-parser=vorbis \
+  --enable-parser=opus \
   --enable-parser=amr \
   --enable-bsf=h264_mp4toannexb \
   --enable-bsf=hevc_mp4toannexb \
