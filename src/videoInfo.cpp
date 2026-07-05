@@ -11,6 +11,15 @@
 // 「视频已过期」（即使资源本身可下载）。同一帧 JPEG 只有几百 KB。
 static const int THUMB_JPEG_QUALITY = 85;
 
+// 封面约束:QQ 对视频封面(缩略图)有 1 MiB 的硬上限,超过接收端就渲染成
+// 「视频已过期」。两道保险:①长边超过 THUMB_MAX_EDGE 就等比降采样(4K/8K 源
+// → ~1080p,顺便贴合 QQ 自身封面都是限尺寸的行为);②编码后若仍 > THUMB_MAX_
+// BYTES,逐档降 JPEG 质量重编,直到达标或触及质量下限。1080p 及以下、正常内容
+// 走一遍 q85 就已远低于阈值,循环不触发。
+static const int THUMB_MAX_EDGE      = 1920;
+static const int THUMB_JPEG_MIN_QUALITY = 30;
+static const size_t THUMB_MAX_BYTES  = 900 * 1024;   // 留余量,QQ 硬限是 1048576
+
 class GetVideoInfoWorker : public Napi::AsyncWorker {
 public:
     GetVideoInfoWorker(const std::string &path, Napi::Promise::Deferred deferred)
@@ -101,22 +110,43 @@ public:
                 if (avcodec_receive_frame(c, frame) == 0) {
                     int w = frame->width;
                     int h = frame->height;
-                    width_ = w; height_ = h;
+                    width_ = w; height_ = h;   // 仍上报真实视频尺寸（供上层做视频元素宽高）
 
-                    int bufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, w, h, 1);
+                    // ① 封面目标尺寸：长边 > THUMB_MAX_EDGE 则等比降采样（偶数，swscale 更稳）。
+                    int tw = w, th = h;
+                    const int longEdge = (w > h) ? w : h;
+                    if (longEdge > THUMB_MAX_EDGE) {
+                        const double s = (double)THUMB_MAX_EDGE / longEdge;
+                        tw = ((int)(w * s)) & ~1;
+                        th = ((int)(h * s)) & ~1;
+                        if (tw < 2) tw = 2;
+                        if (th < 2) th = 2;
+                    }
+
+                    int bufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, tw, th, 1);
                     buffer = (uint8_t*)av_malloc(bufSize);
                     if (!buffer) { av_packet_unref(pkt); break; }
-                    av_image_fill_arrays(rgb->data, rgb->linesize, buffer, AV_PIX_FMT_RGB24, w, h, 1);
+                    av_image_fill_arrays(rgb->data, rgb->linesize, buffer, AV_PIX_FMT_RGB24, tw, th, 1);
 
-                    sws = sws_getContext(w, h, (AVPixelFormat)frame->format, w, h,
+                    sws = sws_getContext(w, h, (AVPixelFormat)frame->format, tw, th,
                                          AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
                     if (!sws) { av_free(buffer); buffer=nullptr; av_packet_unref(pkt); break; }
 
                     sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize);
 
-                    // JPEG 写入多块缓存。rgb 以 align=1 填充（linesize == w*3，
-                    // 行间无 padding），可直接喂给不带 stride 参数的 jpg 编码器。
-                    stbi_write_jpg_to_func(writeFunc, &chunks, w, h, 3, rgb->data[0], THUMB_JPEG_QUALITY);
+                    // ② 质量兜底循环：编码后仍超上限就降 quality 重编。rgb 以 align=1
+                    // 填充（linesize == tw*3，无 padding），可直接喂给不带 stride 的 jpg 编码器。
+                    int quality = THUMB_JPEG_QUALITY;
+                    for (;;) {
+                        stbi_write_jpg_to_func(writeFunc, &chunks, tw, th, 3, rgb->data[0], quality);
+                        size_t encoded = 0;
+                        for (auto &ck : chunks) encoded += ck->offset;
+                        if (encoded <= THUMB_MAX_BYTES || quality <= THUMB_JPEG_MIN_QUALITY) break;
+                        for (auto &ck : chunks) free(ck->data);   // 丢弃本轮，降质量重编
+                        chunks.clear();
+                        quality -= 15;
+                        if (quality < THUMB_JPEG_MIN_QUALITY) quality = THUMB_JPEG_MIN_QUALITY;
+                    }
 
                     // 视频时长
                     if (fmt->duration != AV_NOPTS_VALUE)
