@@ -6,15 +6,20 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+// 首帧封面用 JPEG 编码的质量。之前用全尺寸 PNG，一张 1080x1920 的首帧 PNG
+// 可达 ~1.8MB；QQ 对视频封面有大小上限，超过后接收端会把整条视频渲染成
+// 「视频已过期」（即使资源本身可下载）。同一帧 JPEG 只有几百 KB。
+static const int THUMB_JPEG_QUALITY = 85;
+
 class GetVideoInfoWorker : public Napi::AsyncWorker {
 public:
     GetVideoInfoWorker(const std::string &path, Napi::Promise::Deferred deferred)
         : Napi::AsyncWorker(deferred.Env()), path_(path), deferred_(deferred),
           width_(0), height_(0), duration_(0.0),
-          pngData_(nullptr), pngSize_(0) {}
+          imgData_(nullptr), imgSize_(0) {}
 
     ~GetVideoInfoWorker() {
-        if (pngData_) free(pngData_);
+        if (imgData_) free(imgData_);
     }
 
     void Execute() override {
@@ -109,8 +114,9 @@ public:
 
                     sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize);
 
-                    // PNG 写入多块缓存
-                    stbi_write_png_to_func(writeFunc, &chunks, w, h, 3, rgb->data[0], rgb->linesize[0]);
+                    // JPEG 写入多块缓存。rgb 以 align=1 填充（linesize == w*3，
+                    // 行间无 padding），可直接喂给不带 stride 参数的 jpg 编码器。
+                    stbi_write_jpg_to_func(writeFunc, &chunks, w, h, 3, rgb->data[0], THUMB_JPEG_QUALITY);
 
                     // 视频时长
                     if (fmt->duration != AV_NOPTS_VALUE)
@@ -134,11 +140,11 @@ public:
         if (success) {
             size_t totalSize = 0;
             for (auto &c : chunks) totalSize += c->offset;
-            pngData_ = (uint8_t*)malloc(totalSize);
-            pngSize_ = totalSize;
+            imgData_ = (uint8_t*)malloc(totalSize);
+            imgSize_ = totalSize;
             size_t dstOffset = 0;
             for (auto &c : chunks) {
-                memcpy(pngData_ + dstOffset, c->data, c->offset);
+                memcpy(imgData_ + dstOffset, c->data, c->offset);
                 dstOffset += c->offset;
                 free(c->data);
             }
@@ -160,16 +166,16 @@ public:
     void OnOK() override {
         Napi::Env env = Env();
         // 创建内部Buffer并复制数据
-        Napi::Buffer<uint8_t> img = Napi::Buffer<uint8_t>::New(env, pngSize_);
-        memcpy(img.Data(), pngData_, pngSize_);
-        free(pngData_);
-        pngData_ = nullptr;
+        Napi::Buffer<uint8_t> img = Napi::Buffer<uint8_t>::New(env, imgSize_);
+        memcpy(img.Data(), imgData_, imgSize_);
+        free(imgData_);
+        imgData_ = nullptr;
 
         Napi::Object obj = Napi::Object::New(env);
         obj.Set("width", Napi::Number::New(env, width_));
         obj.Set("height", Napi::Number::New(env, height_));
         obj.Set("duration", Napi::Number::New(env, duration_));
-        obj.Set("format", "png");
+        obj.Set("format", "jpg");
         obj.Set("videoCodec", videoCodec_);
         obj.Set("image", img);
         deferred_.Resolve(obj);
@@ -180,8 +186,8 @@ public:
 private:
     std::string path_;
     Napi::Promise::Deferred deferred_;
-    uint8_t *pngData_;
-    size_t pngSize_;
+    uint8_t *imgData_;
+    size_t imgSize_;
     int width_;
     int height_;
     double duration_;
