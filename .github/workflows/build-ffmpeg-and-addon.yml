@@ -206,6 +206,11 @@ jobs:
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup official Node.js for the MSVC addon
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+
       - name: Install MSYS2 and required packages
         id: msys2
         uses: msys2/setup-msys2@v2
@@ -219,7 +224,6 @@ jobs:
             mingw-w64-x86_64-nasm
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-nodejs
 
       - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
@@ -301,29 +305,18 @@ jobs:
           chmod +x ./scripts/build_ffmpeg_win.sh || true
           ./scripts/build_ffmpeg_win.sh "$(cygpath -u "$PREFIX")"
 
-      - name: Install npm deps (inside msys2)
-        shell: msys2 {0}
+      - name: Install npm deps with official Node.js
         run: |
-          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
-          echo "--- Diagnostics before npm ci ---"
-          which node || true
-          node --version || true
-          which cmake || true
-          cmake --version || true
-          which pkg-config || true
-          pkg-config --version || true
+          node --version
+          node -p "process.execPath"
           npm ci
 
       - name: Configure Node addon (point to built FFmpeg) and build
-        shell: msys2 {0}
         run: |
-          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
-          WIN_PREFIX="$(cygpath -w "$PREFIX")"
-          npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$WIN_PREFIX"
+          npx cmake-js configure -- "-DFFMPEG_SOURCE_DIR=$env:PREFIX"
           npx cmake-js build --arch=x64 --runtime=node
 
       - name: Test video thumbnail extraction
-        shell: msys2 {0}
         run: npm run test:video
 
       - name: Upload built addon
