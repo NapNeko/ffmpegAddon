@@ -6,7 +6,8 @@
   "scripts": {
     "configure": "cmake-js configure",
     "build": "cmake-js rebuild",
-    "test": "node ./test/test.js"
+    "test": "node ./test/test.js",
+    "test:video": "node --test ./test/video-info.test.js"
   },
   "author": "",
   "license": "MIT",
@@ -15,6 +16,7 @@
     "node-addon-api": "^8.0.0"
   },
   "devDependencies": {
+    "jpeg-js": "0.4.4",
     "node-api-headers": "^1.6.0"
   }
 }

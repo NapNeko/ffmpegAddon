@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  FFMPEG_COMMIT: 7107f093d7dafaf60f30a350eba8926aded39952
+
 jobs:
   build-linux:
     name: Build on Ubuntu (x64)
@@ -39,10 +42,13 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
-      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+      - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+          git init ffmpeg_src
+          git -C ffmpeg_src remote add origin https://github.com/FFmpeg/FFmpeg
+          git -C ffmpeg_src fetch --depth 1 origin "$FFMPEG_COMMIT"
+          git -C ffmpeg_src checkout --detach FETCH_HEAD
 
       - name: Clone silk-v3-decoder
         run: |
@@ -77,6 +83,9 @@ jobs:
 
       - name: Build Node addon (cmake-js)
         run: npx cmake-js build --arch=x64 --runtime=node
+
+      - name: Test video thumbnail extraction
+        run: npm run test:video
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -124,10 +133,13 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
-      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+      - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+          git init ffmpeg_src
+          git -C ffmpeg_src remote add origin https://github.com/FFmpeg/FFmpeg
+          git -C ffmpeg_src fetch --depth 1 origin "$FFMPEG_COMMIT"
+          git -C ffmpeg_src checkout --detach FETCH_HEAD
 
       - name: Clone silk-v3-decoder
         run: |
@@ -162,6 +174,9 @@ jobs:
 
       - name: Build Node addon (cmake-js)
         run: npx cmake-js build --arch=arm64 --runtime=node
+
+      - name: Test video thumbnail extraction
+        run: npm run test:video
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -206,10 +221,13 @@ jobs:
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-nodejs
 
-      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+      - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           if (Test-Path ffmpeg_src) { Remove-Item -Recurse -Force ffmpeg_src }
-          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+          git init ffmpeg_src
+          git -C ffmpeg_src remote add origin https://github.com/FFmpeg/FFmpeg
+          git -C ffmpeg_src fetch --depth 1 origin $env:FFMPEG_COMMIT
+          git -C ffmpeg_src checkout --detach FETCH_HEAD
 
       - name: Clone silk-v3-decoder
         run: |
@@ -304,6 +322,10 @@ jobs:
           npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$WIN_PREFIX"
           npx cmake-js build --arch=x64 --runtime=node
 
+      - name: Test video thumbnail extraction
+        shell: msys2 {0}
+        run: npm run test:video
+
       - name: Upload built addon
         uses: actions/upload-artifact@v4
         with:
@@ -347,10 +369,13 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
-      - name: Clone FFmpeg release/7.1 into ffmpeg_src
+      - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
-          git clone --depth 1 --branch release/7.1 https://github.com/FFmpeg/FFmpeg ffmpeg_src
+          git init ffmpeg_src
+          git -C ffmpeg_src remote add origin https://github.com/FFmpeg/FFmpeg
+          git -C ffmpeg_src fetch --depth 1 origin "$FFMPEG_COMMIT"
+          git -C ffmpeg_src checkout --detach FETCH_HEAD
 
       - name: Clone silk-v3-decoder
         run: |
@@ -388,6 +413,9 @@ jobs:
       - name: Remove Code Signing Requirement (if any)
         run: |
           find . -name "*.node" -exec codesign --remove-signature {} \; || true
+
+      - name: Test video thumbnail extraction
+        run: npm run test:video
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
