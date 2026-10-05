@@ -77,7 +77,7 @@ public:
         AVFrame *frame = av_frame_alloc();
         AVFrame *rgb = av_frame_alloc();
         SwsContext *sws = nullptr;
-        uint8_t *buffer = nullptr;
+        std::unique_ptr<uint8_t, decltype(&av_free)> packedRgb(nullptr, av_free);
 
         // 多块固定大小缓存
         const int CHUNK_SIZE = 64 * 1024; // 64KB
@@ -123,22 +123,31 @@ public:
                         if (th < 2) th = 2;
                     }
 
-                    int bufSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, tw, th, 1);
-                    buffer = (uint8_t*)av_malloc(bufSize);
-                    if (!buffer) { av_packet_unref(pkt); break; }
-                    av_image_fill_arrays(rgb->data, rgb->linesize, buffer, AV_PIX_FMT_RGB24, tw, th, 1);
+                    rgb->format = AV_PIX_FMT_RGB24;
+                    rgb->width = tw;
+                    rgb->height = th;
+                    if (av_frame_get_buffer(rgb, 32) < 0) { av_packet_unref(pkt); break; }
 
                     sws = sws_getContext(w, h, (AVPixelFormat)frame->format, tw, th,
                                          AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
-                    if (!sws) { av_free(buffer); buffer=nullptr; av_packet_unref(pkt); break; }
+                    if (!sws) { av_packet_unref(pkt); break; }
 
-                    sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize);
+                    if (sws_scale(sws, frame->data, frame->linesize, 0, h, rgb->data, rgb->linesize) != th) {
+                        av_packet_unref(pkt);
+                        break;
+                    }
 
-                    // ② 质量兜底循环：编码后仍超上限就降 quality 重编。rgb 以 align=1
-                    // 填充（linesize == tw*3，无 padding），可直接喂给不带 stride 的 jpg 编码器。
+                    const size_t rowBytes = static_cast<size_t>(tw) * 3;
+                    packedRgb.reset(static_cast<uint8_t*>(av_malloc(rowBytes * th)));
+                    if (!packedRgb) { av_packet_unref(pkt); break; }
+                    for (int row = 0; row < th; ++row) {
+                        memcpy(packedRgb.get() + static_cast<size_t>(row) * rowBytes,
+                               rgb->data[0] + static_cast<size_t>(row) * rgb->linesize[0], rowBytes);
+                    }
+
                     int quality = THUMB_JPEG_QUALITY;
                     for (;;) {
-                        stbi_write_jpg_to_func(writeFunc, &chunks, tw, th, 3, rgb->data[0], quality);
+                        stbi_write_jpg_to_func(writeFunc, &chunks, tw, th, 3, packedRgb.get(), quality);
                         size_t encoded = 0;
                         for (auto &ck : chunks) encoded += ck->offset;
                         if (encoded <= THUMB_MAX_BYTES || quality <= THUMB_JPEG_MIN_QUALITY) break;
@@ -182,7 +191,6 @@ public:
         }
 
         // 清理
-        if (buffer) av_free(buffer);
         if (sws) sws_freeContext(sws);
         av_frame_free(&frame);
         av_frame_free(&rgb);
