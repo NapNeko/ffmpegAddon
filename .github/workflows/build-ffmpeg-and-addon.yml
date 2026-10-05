@@ -410,9 +410,8 @@ jobs:
       - name: Build Node addon (cmake-js)
         run: npx cmake-js build --arch=x64 --runtime=node
 
-      - name: Remove Code Signing Requirement (if any)
-        run: |
-          find . -name "*.node" -exec codesign --remove-signature {} \; || true
+      - name: Ad-hoc sign the macOS native addon
+        run: codesign --force --sign - build/Release/ffmpegAddon.node
 
       - name: Test video thumbnail extraction
         run: npm run test:video
