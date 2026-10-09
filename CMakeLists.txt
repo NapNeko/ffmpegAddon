@@ -111,6 +111,9 @@ if(_found_libs)
         target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_NODE_EXTENSION)
     elseif(APPLE)
         target_compile_options(${PROJECT_NAME} PRIVATE -fvisibility=hidden)
+        target_link_libraries(${PROJECT_NAME} PRIVATE
+            "-framework CoreFoundation" "-framework CoreVideo" z
+        )
     else()
         # Linux/Unix: 使用 -fvisibility=hidden 和版本脚本
         target_compile_options(${PROJECT_NAME} PRIVATE -fvisibility=hidden)

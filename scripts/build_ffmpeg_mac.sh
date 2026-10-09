@@ -19,6 +19,9 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/l
 
 ./configure \
   --prefix="$PREFIX" \
+  --enable-static \
+  --disable-shared \
+  --disable-autodetect \
   --disable-everything \
   --disable-programs \
   --disable-ffplay \

@@ -336,17 +336,26 @@ jobs:
             ffmpeg_out\lib
 
   build-macos:
-    name: Build on macOS
-    runs-on: macos-latest
+    name: Build on macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
     env:
       PREFIX: ${{ github.workspace }}/ffmpeg_out
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install build dependencies (Homebrew)
         run: |
-          brew update
           brew install automake autoconf pkg-config yasm nasm libtool git python3
 
       - name: Build and install lame (static library)
@@ -401,10 +410,14 @@ jobs:
         run: npx cmake-js configure -- -DFFMPEG_SOURCE_DIR="$PREFIX"
 
       - name: Build Node addon (cmake-js)
-        run: npx cmake-js build --arch=x64 --runtime=node
+        run: npx cmake-js build --arch=${{ matrix.arch }} --runtime=node
 
       - name: Ad-hoc sign the macOS native addon
-        run: codesign --force --sign - build/Release/ffmpegAddon.node
+        run: |
+          codesign --force --sign - build/Release/ffmpegAddon.node
+          codesign --verify --strict build/Release/ffmpegAddon.node
+          file build/Release/ffmpegAddon.node
+          otool -L build/Release/ffmpegAddon.node
 
       - name: Test video thumbnail extraction
         run: npm run test:video
@@ -412,14 +425,14 @@ jobs:
       - name: Upload built addon
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-addon-macos
+          name: ffmpeg-addon-macos-${{ matrix.arch }}
           path: |
             build/**/*.node
             Release/**/*.node
       - name: Upload FFmpeg headers and libs
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-libs-macos
+          name: ffmpeg-libs-macos-${{ matrix.arch }}
           path: |
             ffmpeg_out/include
             ffmpeg_out/lib
