@@ -22,8 +22,8 @@ static const size_t THUMB_MAX_BYTES  = 900 * 1024;   // 留余量,QQ 硬限是 1
 
 class GetVideoInfoWorker : public Napi::AsyncWorker {
 public:
-    GetVideoInfoWorker(const std::string &path, Napi::Promise::Deferred deferred)
-        : Napi::AsyncWorker(deferred.Env()), path_(path), deferred_(deferred),
+    GetVideoInfoWorker(const std::string &path, const std::string &format, Napi::Promise::Deferred deferred)
+        : Napi::AsyncWorker(deferred.Env()), path_(path), format_(format), deferred_(deferred),
           width_(0), height_(0), duration_(0.0),
           imgData_(nullptr), imgSize_(0) {}
 
@@ -145,16 +145,22 @@ public:
                                rgb->data[0] + static_cast<size_t>(row) * rgb->linesize[0], rowBytes);
                     }
 
-                    int quality = THUMB_JPEG_QUALITY;
-                    for (;;) {
-                        stbi_write_jpg_to_func(writeFunc, &chunks, tw, th, 3, packedRgb.get(), quality);
-                        size_t encoded = 0;
-                        for (auto &ck : chunks) encoded += ck->offset;
-                        if (encoded <= THUMB_MAX_BYTES || quality <= THUMB_JPEG_MIN_QUALITY) break;
-                        for (auto &ck : chunks) free(ck->data);   // 丢弃本轮，降质量重编
-                        chunks.clear();
-                        quality -= 15;
-                        if (quality < THUMB_JPEG_MIN_QUALITY) quality = THUMB_JPEG_MIN_QUALITY;
+                    if (format_ == "png") {
+                        if (!stbi_write_png_to_func(writeFunc, &chunks, tw, th, 3, packedRgb.get(), rowBytes)) {
+                            av_packet_unref(pkt);
+                            break;
+                        }
+                    } else {
+                        int quality = THUMB_JPEG_QUALITY;
+                        for (;;) {
+                            stbi_write_jpg_to_func(writeFunc, &chunks, tw, th, 3, packedRgb.get(), quality);
+                            size_t encoded = 0;
+                            for (auto &chunk : chunks) encoded += chunk->offset;
+                            if (encoded <= THUMB_MAX_BYTES || quality <= THUMB_JPEG_MIN_QUALITY) break;
+                            for (auto &chunk : chunks) free(chunk->data);
+                            chunks.clear();
+                            quality = std::max(THUMB_JPEG_MIN_QUALITY, quality - 15);
+                        }
                     }
 
                     // 视频时长
@@ -213,7 +219,7 @@ public:
         obj.Set("width", Napi::Number::New(env, width_));
         obj.Set("height", Napi::Number::New(env, height_));
         obj.Set("duration", Napi::Number::New(env, duration_));
-        obj.Set("format", "jpg");
+        obj.Set("format", format_);
         obj.Set("videoCodec", videoCodec_);
         obj.Set("image", img);
         deferred_.Resolve(obj);
@@ -223,6 +229,7 @@ public:
 
 private:
     std::string path_;
+    std::string format_;
     Napi::Promise::Deferred deferred_;
     uint8_t *imgData_;
     size_t imgSize_;
@@ -241,8 +248,20 @@ Napi::Value GetVideoInfo(const Napi::CallbackInfo &info) {
     }
 
     std::string path = info[0].As<Napi::String>().Utf8Value();
+    std::string format = "jpg";
+    if (info.Length() > 1) {
+        if (!info[1].IsString()) {
+            Napi::TypeError::New(env, "Expected image format jpg or png").ThrowAsJavaScriptException();
+            return env.Null();
+        }
+        format = info[1].As<Napi::String>().Utf8Value();
+        if (format != "jpg" && format != "png") {
+            Napi::TypeError::New(env, "Expected image format jpg or png").ThrowAsJavaScriptException();
+            return env.Null();
+        }
+    }
     Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-    GetVideoInfoWorker *worker = new GetVideoInfoWorker(path, deferred);
+    GetVideoInfoWorker *worker = new GetVideoInfoWorker(path, format, deferred);
     worker->Queue();
     return deferred.Promise();
 }
