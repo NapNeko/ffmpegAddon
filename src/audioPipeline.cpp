@@ -86,7 +86,8 @@ public:
         encoder_->time_base = {1, encoder_->sample_rate};
         av_channel_layout_default(&encoder_->ch_layout, 1);
         encoder_->bit_rate = format.bitRate;
-        encoder_->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+        if (encoderCodec->capabilities & AV_CODEC_CAP_EXPERIMENTAL)
+            encoder_->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
         CheckAudioResult(avformat_alloc_output_context2(&output_, nullptr, format.muxer, outputPath.c_str()), "Failed to create output container");
         if (output_->oformat->flags & AVFMT_GLOBALHEADER)
             encoder_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -145,6 +146,12 @@ private:
     {
         if (requestedRate < 0 || inputRate <= 0)
             throw std::runtime_error("Invalid audio sample rate");
+        if (codec->id == AV_CODEC_ID_AMR_NB)
+        {
+            if (requestedRate > 0 && requestedRate != 8000)
+                throw std::runtime_error("Requested sample rate is not supported by the encoder");
+            return 8000;
+        }
         if (!codec->supported_samplerates)
             return requestedRate > 0 ? requestedRate : inputRate;
         int closest = codec->supported_samplerates[0];

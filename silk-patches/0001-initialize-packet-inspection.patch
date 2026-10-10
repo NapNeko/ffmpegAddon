@@ -1,0 +1,22 @@
+diff --git a/silk/src/SKP_Silk_dec_API.c b/silk/src/SKP_Silk_dec_API.c
+--- a/silk/src/SKP_Silk_dec_API.c
++++ b/silk/src/SKP_Silk_dec_API.c
+@@ -243,6 +243,8 @@ void SKP_Silk_SDK_get_TOC(
+     SKP_Silk_decoder_control    sDecCtrl;
+     SKP_int TempQ[ MAX_FRAME_LENGTH ];
+ 
++    SKP_memset( &sDec, 0, sizeof( sDec ) );
++    SKP_memset( Silk_TOC, 0, sizeof( *Silk_TOC ) );
+     sDec.nFramesDecoded = 0;
+     sDec.fs_kHz         = 0; /* Force update parameters LPC_order etc */
+     SKP_Silk_range_dec_init( &sDec.sRC, inData, ( SKP_int32 )nBytesIn );
+@@ -250,5 +252,9 @@ void SKP_Silk_SDK_get_TOC(
+     Silk_TOC->corrupt = 0;
+     while( 1 ) {
++        if( sDec.nFramesDecoded >= SILK_MAX_FRAMES_PER_PACKET ) {
++            Silk_TOC->corrupt = 1;
++            break;
++        }
+         SKP_Silk_decode_parameters( &sDec, &sDecCtrl, TempQ, 0 );
+         
+         Silk_TOC->vadFlags[     sDec.nFramesDecoded ] = sDec.vadFlag;

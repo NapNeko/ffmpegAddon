@@ -61,6 +61,7 @@ jobs:
         run: |
           rm -rf silk-v3-decoder
           git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+          git -C silk-v3-decoder apply --ignore-whitespace ../silk-patches/0001-initialize-packet-inspection.patch
 
       - name: Apply repository patches to ffmpeg_src
         run: |
@@ -95,6 +96,7 @@ jobs:
         run: npm test
 
       - name: Upload built addon
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-addon-linux
@@ -102,6 +104,7 @@ jobs:
             build/**/*.node
             Release/**/*.node
       - name: Upload FFmpeg headers and libs
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-linux
@@ -159,6 +162,7 @@ jobs:
         run: |
           rm -rf silk-v3-decoder
           git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+          git -C silk-v3-decoder apply --ignore-whitespace ../silk-patches/0001-initialize-packet-inspection.patch
 
       - name: Apply repository patches to ffmpeg_src
         run: |
@@ -193,6 +197,7 @@ jobs:
         run: npm test
 
       - name: Upload built addon
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-addon-linux-arm64
@@ -201,6 +206,7 @@ jobs:
             Release/**/*.node
 
       - name: Upload FFmpeg headers and libs
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-linux-arm64
@@ -258,6 +264,7 @@ jobs:
         run: |
           if (Test-Path silk-v3-decoder) { Remove-Item -Recurse -Force silk-v3-decoder }
           git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+          git -C silk-v3-decoder apply --ignore-whitespace ../silk-patches/0001-initialize-packet-inspection.patch
 
       - name: Apply repository patches to ffmpeg_src (Windows/msys2)
         env:
@@ -341,6 +348,7 @@ jobs:
         run: npm test
 
       - name: Upload built addon
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-addon-windows
@@ -349,6 +357,7 @@ jobs:
             Release\**\*.node
             ffmpeg_out\lib\**\*.node
       - name: Upload FFmpeg headers and libs
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-windows
@@ -411,6 +420,7 @@ jobs:
         run: |
           rm -rf silk-v3-decoder
           git clone https://github.com/kn007/silk-v3-decoder silk-v3-decoder
+          git -C silk-v3-decoder apply --ignore-whitespace ../silk-patches/0001-initialize-packet-inspection.patch
 
       - name: Apply repository patches to ffmpeg_src on macOS
         run: |
@@ -451,6 +461,7 @@ jobs:
         run: npm test
 
       - name: Upload built addon
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-addon-macos-${{ matrix.arch }}
@@ -458,6 +469,7 @@ jobs:
             build/**/*.node
             Release/**/*.node
       - name: Upload FFmpeg headers and libs
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-libs-macos-${{ matrix.arch }}

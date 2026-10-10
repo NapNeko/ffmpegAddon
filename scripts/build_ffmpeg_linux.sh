@@ -76,7 +76,7 @@ echo "Configuring FFmpeg with position-independent code (PIC) enabled"
   --enable-decoder=pcm_s16le \
   --enable-decoder=pcm_f32le \
   --enable-decoder=amrnb \
-  --enable-decoder=speex \
+  --enable-decoder=libspeex \
   --enable-decoder=wmav1 \
   --enable-decoder=wmav2 \
   --enable-decoder=amrwb \
