@@ -43,8 +43,9 @@ jobs:
           ls -la "${PREFIX}/include" || true
 
       - name: Build static AMR and Speex codecs
+        shell: bash
         run: |
-          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=$PREFIX"
           cmake --build build/audio-codecs --config Release --parallel 2
           cmake --install build/audio-codecs --config Release
 
@@ -140,8 +141,9 @@ jobs:
           ls -la "${PREFIX}/include" || true
 
       - name: Build static AMR and Speex codecs
+        shell: bash
         run: |
-          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=$PREFIX"
           cmake --build build/audio-codecs --config Release --parallel 2
           cmake --install build/audio-codecs --config Release
 
@@ -238,8 +240,9 @@ jobs:
             mingw-w64-x86_64-pkg-config
 
       - name: Build static AMR and Speex codecs
+        shell: bash
         run: |
-          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=$PREFIX"
           cmake --build build/audio-codecs --config Release --parallel 2
           cmake --install build/audio-codecs --config Release
 
@@ -390,8 +393,9 @@ jobs:
           ls -la "${PREFIX}/include" || true
 
       - name: Build static AMR and Speex codecs
+        shell: bash
         run: |
-          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=$PREFIX"
           cmake --build build/audio-codecs --config Release --parallel 2
           cmake --install build/audio-codecs --config Release
 
