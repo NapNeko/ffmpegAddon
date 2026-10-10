@@ -18,7 +18,6 @@
   },
   "devDependencies": {
     "jpeg-js": "0.4.4",
-    "pngjs": "7.0.0",
-    "node-api-headers": "^1.6.0"
+    "pngjs": "7.0.0"
   }
 }
