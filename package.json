@@ -6,7 +6,8 @@
   "scripts": {
     "configure": "cmake-js configure",
     "build": "cmake-js rebuild",
-    "test": "node ./test/test.js",
+    "test": "node --test ./test/video-info.test.js ./test/audio.test.js",
+    "test:audio": "node --test ./test/audio.test.js",
     "test:video": "node --test ./test/video-info.test.js"
   },
   "author": "",

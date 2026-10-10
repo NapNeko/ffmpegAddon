@@ -100,6 +100,7 @@ CONFIGURE_FLAGS=(
   --enable-demuxer=wav \
   --enable-demuxer=flac \
   --enable-demuxer=amr \
+  --enable-demuxer=asf \
   --enable-demuxer=h264 \
   --enable-demuxer=hevc \
   --enable-demuxer=ntsilk_skp_s16le \
@@ -116,12 +117,18 @@ CONFIGURE_FLAGS=(
   --enable-decoder=pcm_s16le \
   --enable-decoder=pcm_f32le \
   --enable-decoder=amrnb \
+  --enable-decoder=speex \
+  --enable-decoder=wmav1 \
+  --enable-decoder=wmav2 \
   --enable-decoder=amrwb \
   --enable-decoder=h264 \
   --enable-encoder=aac \
   --enable-encoder=opus \
   --enable-encoder=flac \
   --enable-encoder=pcm_s16le \
+  --enable-version3 \
+  --enable-libopencore-amrnb \
+  --enable-libspeex \
   --enable-encoder=libopencore_amrnb \
   --enable-encoder=libspeex \
   --enable-encoder=wmav1 \
@@ -131,6 +138,9 @@ CONFIGURE_FLAGS=(
   --enable-decoder=mp3float \
   --enable-muxer=mp3 \
   --enable-muxer=mp4 \
+  --enable-muxer=ipod \
+  --enable-muxer=asf \
+  --enable-muxer=pcm_s16le \
   --enable-muxer=ogg \
   --enable-muxer=wav \
   --enable-muxer=flac \

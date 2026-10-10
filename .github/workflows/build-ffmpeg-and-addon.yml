@@ -42,6 +42,12 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
+      - name: Build static AMR and Speex codecs
+        run: |
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake --build build/audio-codecs --config Release --parallel 2
+          cmake --install build/audio-codecs --config Release
+
       - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
@@ -84,8 +90,8 @@ jobs:
       - name: Build Node addon (cmake-js)
         run: npx cmake-js build --arch=x64 --runtime=node
 
-      - name: Test video thumbnail extraction
-        run: npm run test:video
+      - name: Test native audio and video
+        run: npm test
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -133,6 +139,12 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
+      - name: Build static AMR and Speex codecs
+        run: |
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake --build build/audio-codecs --config Release --parallel 2
+          cmake --install build/audio-codecs --config Release
+
       - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
@@ -175,8 +187,8 @@ jobs:
       - name: Build Node addon (cmake-js)
         run: npx cmake-js build --arch=arm64 --runtime=node
 
-      - name: Test video thumbnail extraction
-        run: npm run test:video
+      - name: Test native audio and video
+        run: npm test
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -224,6 +236,12 @@ jobs:
             mingw-w64-x86_64-nasm
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-pkg-config
+
+      - name: Build static AMR and Speex codecs
+        run: |
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake --build build/audio-codecs --config Release --parallel 2
+          cmake --install build/audio-codecs --config Release
 
       - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
@@ -316,8 +334,8 @@ jobs:
           npx cmake-js configure -- "-DFFMPEG_SOURCE_DIR=$env:PREFIX"
           npx cmake-js build --arch=x64 --runtime=node
 
-      - name: Test video thumbnail extraction
-        run: npm run test:video
+      - name: Test native audio and video
+        run: npm test
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4
@@ -371,6 +389,12 @@ jobs:
           ls -la "${PREFIX}/lib" || true
           ls -la "${PREFIX}/include" || true
 
+      - name: Build static AMR and Speex codecs
+        run: |
+          cmake -S scripts/audio-codecs -B build/audio-codecs -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=${{ env.PREFIX }}"
+          cmake --build build/audio-codecs --config Release --parallel 2
+          cmake --install build/audio-codecs --config Release
+
       - name: Checkout pinned FFmpeg into ffmpeg_src
         run: |
           rm -rf ffmpeg_src
@@ -419,8 +443,8 @@ jobs:
           file build/Release/ffmpegAddon.node
           otool -L build/Release/ffmpegAddon.node
 
-      - name: Test video thumbnail extraction
-        run: npm run test:video
+      - name: Test native audio and video
+        run: npm test
 
       - name: Upload built addon
         uses: actions/upload-artifact@v4

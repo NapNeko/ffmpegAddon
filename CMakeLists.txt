@@ -42,6 +42,7 @@ set(ADDON_SOURCES
     src/convertNTSilk.cpp
     src/convertFile.cpp
     src/decodePCM.cpp
+    src/audioPipeline.cpp
 )
 
 # 添加 silk-v3-decoder silk/interface 和 silk/src 源文件
@@ -102,6 +103,15 @@ else()
         message(WARNING "LAME lib missing: libmp3lame.a not found in ${FFMPEG_LIB_DIR}")
     endif()
 endif()
+
+foreach(audio_codec opencore-amrnb speex)
+    find_library(audio_codec_library NAMES ${audio_codec} PATHS "${FFMPEG_LIB_DIR}" NO_DEFAULT_PATH)
+    if(NOT audio_codec_library)
+        message(FATAL_ERROR "Missing audio codec library: ${audio_codec}")
+    endif()
+    list(APPEND _found_libs "${audio_codec_library}")
+    unset(audio_codec_library CACHE)
+endforeach()
 
 # 链接 FFmpeg
 if(_found_libs)

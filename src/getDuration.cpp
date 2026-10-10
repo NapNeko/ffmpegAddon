@@ -26,9 +26,11 @@ public:
             SetError(std::string("Failed to find stream info: ") + buf);
             return;
         }
+        bool hasDuration = false;
         if (fmt->duration != AV_NOPTS_VALUE)
         {
             duration_ = fmt->duration / (double)AV_TIME_BASE;
+            hasDuration = true;
         }
         else
         {
@@ -37,6 +39,7 @@ public:
                 AVStream *st = fmt->streams[i];
                 if (st->duration != AV_NOPTS_VALUE)
                 {
+                    hasDuration = true;
                     double d = (double)st->duration * av_q2d(st->time_base);
                     if (d > duration_)
                         duration_ = d;
@@ -44,6 +47,8 @@ public:
             }
         }
         avformat_close_input(&fmt);
+        if (!hasDuration)
+            SetError("Input does not contain a known duration");
     }
 
     void OnOK() override

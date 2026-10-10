@@ -1,0 +1,9 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: speex
+Description: Speex audio codec
+Version: 1.2.1
+Libs: -L${libdir} -lspeex
+Cflags: -I${includedir}
